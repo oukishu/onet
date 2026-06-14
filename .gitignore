@@ -29,6 +29,10 @@ __pycache__/
 env/
 venv/
 
+# Golang
+.gopls/
+.go/
+
 # Cache
 .cache/
 .parcel-cache/
@@ -47,6 +51,7 @@ ehthumbs.db
 *~
 *.swp
 *.swo
+*.exe~
 .project
 .settings/
 .classpath
