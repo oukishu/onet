@@ -1,6 +1,6 @@
 //go:build linux
 
-package native
+package tunnel
 
 import (
 	"context"
@@ -8,13 +8,12 @@ import (
 	"os"
 
 	"github.com/oukishu/netlink"
-	"github.com/oukishu/onet/tunnel"
 
 	"golang.org/x/sys/unix"
 )
 
 // controlPath is the path to the TUN control device.
-// On Android it lives at /dev/tun; on standard Linux at /dev/net/tunnel.
+// On Android it lives at /dev/tun; on standard Linux at /dev/net/tun.
 var controlPath string
 
 func init() {
@@ -33,7 +32,8 @@ type linuxDriver struct {
 	file *os.File
 }
 
-func openPlatform(_ context.Context, config tunnel.Config) (platformDriver, error) {
+// openPlatform opens the TUN device using the Linux clone device.
+func openPlatform(_ context.Context, config Config) (platformDriver, error) {
 	name := config.Name
 	if name == "" {
 		name = "tun%d"
@@ -62,8 +62,8 @@ func openPlatform(_ context.Context, config tunnel.Config) (platformDriver, erro
 	}
 
 	// Re-read the actual interface name assigned by the kernel
-	// (important when name contained "%d").
-	nameIfr, err := unix.NewIfreq("") // dummy, will be filled by TUNGETIFF
+	// (important when the name contains "%d").
+	nameIfr, err := unix.NewIfreq("") // Dummy, will be filled by TUNGETIFF
 	if err == nil {
 		if ioctlErr := unix.IoctlIfreq(fd, unix.TUNGETIFF, nameIfr); ioctlErr == nil {
 			name = nameIfr.Name()
@@ -87,7 +87,8 @@ func (d *linuxDriver) Name() string { return d.name }
 
 func (d *linuxDriver) File() *os.File { return d.file }
 
-func (d *linuxDriver) Configure(config tunnel.Config) error {
+// Configure sets up the interface's MTU, links it up, and assigns IP addresses via netlink.
+func (d *linuxDriver) Configure(config Config) error {
 	tunLink, err := netlink.LinkByName(d.name)
 	if err != nil {
 		return err
@@ -124,10 +125,12 @@ func (d *linuxDriver) Configure(config tunnel.Config) error {
 	return nil
 }
 
-func (d *linuxDriver) Read(ctx context.Context) (tunnel.Packet, error) {
+// Read reads a raw packet from the Linux TUN device.
+func (d *linuxDriver) Read(ctx context.Context) (Packet, error) {
 	return readRaw(ctx, d.file)
 }
 
-func (d *linuxDriver) Write(ctx context.Context, packet tunnel.Packet) error {
+// Write writes a raw packet to the Linux TUN device.
+func (d *linuxDriver) Write(ctx context.Context, packet Packet) error {
 	return writeRaw(ctx, d.file, packet)
 }

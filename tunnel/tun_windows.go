@@ -1,6 +1,6 @@
 //go:build windows
 
-package native
+package tunnel
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
 
-	"github.com/oukishu/onet/tunnel"
 	"github.com/oukishu/onet/tunnel/internal/winipcfg"
 	"github.com/oukishu/onet/tunnel/internal/wintun"
 	"golang.org/x/sys/windows"
@@ -26,6 +26,7 @@ const (
 	spinloopDuration           = uint64(time.Millisecond / 80 / time.Nanosecond) // ~1 Gbps
 )
 
+// TunnelType specifies the device type string for the Wintun adapter.
 var TunnelType = "Tunnel"
 
 type windowsDriver struct {
@@ -39,10 +40,21 @@ type windowsDriver struct {
 	closed    atomic.Int32
 }
 
-func openPlatform(_ context.Context, config tunnel.Config) (platformDriver, error) {
+// openPlatform initializes and opens the Wintun adapter pool on Windows.
+// It automatically falls back to opening an existing adapter if the creation returns an existential conflict.
+func openPlatform(_ context.Context, config Config) (platformDriver, error) {
 	name := config.Name
 	if name == "" {
 		name = "tun0"
+	}
+	var targetDir string
+	if config.WindowsDLL != "" {
+		if filepath.Ext(config.WindowsDLL) == ".dll" {
+			targetDir = filepath.Dir(config.WindowsDLL)
+		} else {
+			targetDir = config.WindowsDLL
+		}
+		wintun.SetLibraryDir(targetDir)
 	}
 
 	guid := generateGUIDByDeviceName(name)
@@ -84,7 +96,8 @@ func (d *windowsDriver) Start() error   { return nil }
 func (d *windowsDriver) Name() string   { return d.name }
 func (d *windowsDriver) File() *os.File { return nil }
 
-func (d *windowsDriver) Configure(config tunnel.Config) error {
+// Configure sets up IP addresses, flushes, drops DNS registration leaks, and applies interface configurations.
+func (d *windowsDriver) Configure(config Config) error {
 	luid := winipcfg.LUID(d.adapter.LUID())
 
 	// Configure by address family separately to ensure IPv4/IPv6 are added after their respective flushes
@@ -146,6 +159,7 @@ func (d *windowsDriver) Configure(config tunnel.Config) error {
 	return nil
 }
 
+// Close teardowns the driver session and unblocks pending read routines.
 func (d *windowsDriver) Close() error {
 	d.closeOnce.Do(func() {
 		d.closed.Store(1)
@@ -158,13 +172,14 @@ func (d *windowsDriver) Close() error {
 	return nil
 }
 
-func (d *windowsDriver) Read(ctx context.Context) (tunnel.Packet, error) {
+// Read extracts a packet payload from the ring buffer, dynamically utilizing adaptive spinloops under high loads.
+func (d *windowsDriver) Read(ctx context.Context) (Packet, error) {
 	d.running.Add(1)
 	defer d.running.Done()
 
 retry:
 	if d.closed.Load() == 1 {
-		return tunnel.Packet{}, os.ErrClosed
+		return Packet{}, os.ErrClosed
 	}
 
 	start := nanotime()
@@ -173,13 +188,13 @@ retry:
 
 	for {
 		if d.closed.Load() == 1 {
-			return tunnel.Packet{}, os.ErrClosed
+			return Packet{}, os.ErrClosed
 		}
 
 		// Prioritize checking context to avoid creating extra goroutines in the fast path
 		select {
 		case <-ctx.Done():
-			return tunnel.Packet{}, ctx.Err()
+			return Packet{}, ctx.Err()
 		default:
 		}
 
@@ -189,7 +204,7 @@ retry:
 			payload := append([]byte(nil), packet...)
 			d.session.ReleaseReceivePacket(packet)
 			d.rate.update(uint64(len(payload)))
-			return tunnel.RawPacket(payload), nil
+			return RawPacket(payload), nil
 		case windows.ERROR_NO_MORE_ITEMS:
 			if !shouldSpin || uint64(nanotime()-start) >= spinloopDuration {
 				windows.WaitForSingleObject(d.readEvent, windows.INFINITE)
@@ -198,15 +213,16 @@ retry:
 			procyield(1)
 			continue
 		case windows.ERROR_HANDLE_EOF:
-			return tunnel.Packet{}, os.ErrClosed
+			return Packet{}, os.ErrClosed
 		case windows.ERROR_INVALID_DATA:
-			return tunnel.Packet{}, errors.New("receive ring corrupt")
+			return Packet{}, errors.New("receive ring corrupt")
 		}
-		return tunnel.Packet{}, fmt.Errorf("read failed: %w", err)
+		return Packet{}, fmt.Errorf("read failed: %w", err)
 	}
 }
 
-func (d *windowsDriver) Write(ctx context.Context, packet tunnel.Packet) error {
+// Write allocates space inside the ring buffer and writes out a packet payload.
+func (d *windowsDriver) Write(ctx context.Context, packet Packet) error {
 	d.running.Add(1)
 	defer d.running.Done()
 
