@@ -20,3 +20,36 @@ yarn-error.log
 
 # JetBrains IDEs
 .idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Cache
+.cache/
+.parcel-cache/
+.nuxt/
+.output/
+.vite/
+
+# Log
+*.log
+*.log.*
+.trash/
+Thumbs.db.encrypted
+ehthumbs.db
+
+# Other
+*~
+*.swp
+*.swo
+.project
+.settings/
+.classpath
+.pnpm-debug.log
+.eslintcache
+.stylelintcache
