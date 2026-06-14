@@ -182,3 +182,9 @@ func GenerateGUIDFromName(name string) *windows.GUID {
 
 	return &guid
 }
+
+func SetLibraryDir(dir string) {
+	modwintun.mu.Lock()
+	modwintun.libraryDir = dir
+	modwintun.mu.Unlock()
+}
