@@ -5,6 +5,7 @@ import (
 	"syscall"
 )
 
+// WithFD(conn, func(fd){SetMark}, func(fd){SetTOS}, func(fd){SetTTL})
 func WithFD(conn syscall.Conn, operations ...func(fd uintptr) error) error {
 	rawConn, err := conn.SyscallConn()
 	if err != nil {
@@ -24,6 +25,7 @@ func WithFD(conn syscall.Conn, operations ...func(fd uintptr) error) error {
 	return errors.Join(innerErr, err)
 }
 
+// WithFD0[int](conn, func(fd uintptr) (int, error)
 func WithFD0[T any](conn syscall.Conn, fn func(fd uintptr) (T, error)) (T, error) {
 	rawConn, err := conn.SyscallConn()
 	if err != nil {
