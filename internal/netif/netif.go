@@ -1,13 +1,10 @@
-package monitor
+package netif
 
 import (
 	"bytes"
 	"net"
 	"net/netip"
 	"slices"
-	"unsafe"
-
-	"github.com/oukishu/internal/metadata"
 )
 
 type InterfaceFinder interface {
@@ -37,7 +34,13 @@ func (i Interface) Equals(other Interface) bool {
 }
 
 func (i Interface) NetInterface() net.Interface {
-	return *(*net.Interface)(unsafe.Pointer(&i))
+	return net.Interface{
+		Index:        i.Index,
+		MTU:          i.MTU,
+		Name:         i.Name,
+		HardwareAddr: i.HardwareAddr,
+		Flags:        i.Flags,
+	}
 }
 
 func InterfaceFromNet(iif net.Interface) (Interface, error) {
@@ -47,8 +50,14 @@ func InterfaceFromNet(iif net.Interface) (Interface, error) {
 	}
 
 	prefixes := make([]netip.Prefix, 0, len(ifAddrs))
-	for _, addr := range ifAddrs {
-		prefixes = append(prefixes, metadata.PrefixFromNet(addr))
+	for _, netAddr := range ifAddrs {
+		if ipNet, ok := netAddr.(*net.IPNet); ok {
+			if ip, ok := netip.AddrFromSlice(ipNet.IP); ok {
+				bits, _ := ipNet.Mask.Size()
+				prefix := netip.PrefixFrom(ip.Unmap(), bits)
+				prefixes = append(prefixes, prefix)
+			}
+		}
 	}
 
 	return InterfaceFromNetAddrs(iif, prefixes), nil

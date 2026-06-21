@@ -12,6 +12,7 @@ import (
 
 	"github.com/oukishu/internal/buf"
 	"github.com/oukishu/internal/list"
+	"github.com/oukishu/internal/netif"
 
 	"golang.org/x/net/route"
 	"golang.org/x/sys/unix"
@@ -108,7 +109,7 @@ func (m *networkUpdateMonitor) Close() error {
 
 func (m *defaultInterfaceMonitor) checkUpdate() error {
 	var (
-		defaultInterface *Interface
+		defaultInterface *netif.Interface
 		err              error
 	)
 	if m.underNetworkExtension {
@@ -177,7 +178,7 @@ func (m *defaultInterfaceMonitor) checkUpdate() error {
 	return nil
 }
 
-func (m *defaultInterfaceMonitor) getDefaultInterfaceBySocket() (*Interface, error) {
+func (m *defaultInterfaceMonitor) getDefaultInterfaceBySocket() (*netif.Interface, error) {
 	socketFd, err := unix.Socket(unix.AF_INET, unix.SOCK_STREAM, 0)
 	if err != nil {
 		return nil, fmt.Errorf("create file descriptor: %w", err)

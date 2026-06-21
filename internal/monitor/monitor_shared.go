@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/oukishu/internal/list"
+	"github.com/oukishu/internal/netif"
 )
 
 func (m *networkUpdateMonitor) RegisterCallback(callback NetworkUpdateCallback) *list.Element[NetworkUpdateCallback] {
@@ -33,9 +34,9 @@ func (m *networkUpdateMonitor) emit() {
 }
 
 type defaultInterfaceMonitor struct {
-	interfaceFinder       InterfaceFinder
+	interfaceFinder       netif.InterfaceFinder
 	underNetworkExtension bool
-	defaultInterface      atomic.Pointer[Interface]
+	defaultInterface      atomic.Pointer[netif.Interface]
 	noRoute               bool
 	networkMonitor        NetworkUpdateMonitor
 	logger                Logger
@@ -96,7 +97,7 @@ func (m *defaultInterfaceMonitor) Close() error {
 	return nil
 }
 
-func (m *defaultInterfaceMonitor) DefaultInterface() *Interface {
+func (m *defaultInterfaceMonitor) DefaultInterface() *netif.Interface {
 	return m.defaultInterface.Load()
 }
 
@@ -112,7 +113,7 @@ func (m *defaultInterfaceMonitor) UnregisterCallback(element *list.Element[Defau
 	m.callbacks.Remove(element)
 }
 
-func (m *defaultInterfaceMonitor) emit(defaultInterface *Interface, flags int) {
+func (m *defaultInterfaceMonitor) emit(defaultInterface *netif.Interface, flags int) {
 	m.access.Lock()
 	callbacks := m.callbacks.Array()
 	m.access.Unlock()

@@ -4,13 +4,14 @@ import (
 	"errors"
 
 	"github.com/oukishu/internal/list"
+	"github.com/oukishu/internal/netif"
 )
 
 var ErrNoRoute = errors.New("no route to internet")
 
 type (
 	NetworkUpdateCallback          = func()
-	DefaultInterfaceUpdateCallback = func(defaultInterface *Interface, flags int)
+	DefaultInterfaceUpdateCallback = func(defaultInterface *netif.Interface, flags int)
 )
 
 type NetworkUpdateMonitor interface {
@@ -23,7 +24,7 @@ type NetworkUpdateMonitor interface {
 type DefaultInterfaceMonitor interface {
 	Start() error
 	Close() error
-	DefaultInterface() *Interface
+	DefaultInterface() *netif.Interface
 	RegisterCallback(callback DefaultInterfaceUpdateCallback) *list.Element[DefaultInterfaceUpdateCallback]
 	UnregisterCallback(element *list.Element[DefaultInterfaceUpdateCallback])
 	RegisterMyInterface(interfaceName string)
@@ -31,6 +32,6 @@ type DefaultInterfaceMonitor interface {
 }
 
 type DefaultInterfaceMonitorOptions struct {
-	InterfaceFinder       InterfaceFinder
+	InterfaceFinder       netif.InterfaceFinder
 	UnderNetworkExtension bool
 }
