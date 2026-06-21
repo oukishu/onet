@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/oukishu/internal/list"
-
-	"github.com/sagernet/netlink"
+	"github.com/oukishu/internal/netlink"
 
 	"golang.org/x/sys/unix"
 )
