@@ -1,39 +1,41 @@
 package sockfd
 
 import (
+	"errors"
 	"syscall"
 )
 
-func WithFD(conn syscall.Conn, fn func(fd uintptr) error) error {
-	raw, err := conn.SyscallConn()
+func WithFD(conn syscall.Conn, operations ...func(fd uintptr) error) error {
+	rawConn, err := conn.SyscallConn()
 	if err != nil {
 		return err
 	}
-	var inner error
-	err = raw.Control(func(fd uintptr) {
-		inner = fn(fd)
+	var innerErr error
+	err = rawConn.Control(func(fd uintptr) {
+		for _, op := range operations {
+			if op == nil {
+				continue
+			}
+			if innerErr = op(fd); innerErr != nil {
+				return
+			}
+		}
 	})
-	if inner != nil {
-		return inner
-	}
-	return err
+	return errors.Join(innerErr, err)
 }
 
 func WithFD0[T any](conn syscall.Conn, fn func(fd uintptr) (T, error)) (T, error) {
-	raw, err := conn.SyscallConn()
+	rawConn, err := conn.SyscallConn()
 	if err != nil {
 		var zero T
 		return zero, err
 	}
 	var (
-		val   T
-		inner error
+		val      T
+		innerErr error
 	)
-	err = raw.Control(func(fd uintptr) {
-		val, inner = fn(fd)
+	err = rawConn.Control(func(fd uintptr) {
+		val, innerErr = fn(fd)
 	})
-	if inner != nil {
-		return val, inner
-	}
-	return val, err
+	return val, errors.Join(innerErr, err)
 }
