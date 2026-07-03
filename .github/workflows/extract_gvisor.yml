@@ -65,58 +65,58 @@ jobs:
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
-      - name: Build and execute code generation (go_generics & go_marshal)
+      - name: Build go_generics and go_marshal tools
         run: |
-          echo "========================================================"
-          echo "1. Machine Generation: Build internal tools"
-          echo "========================================================"
-          # Build go_generics
+          echo "Building gVisor generation tools..."
           cd gvisor_src/tools/go_generics && go build -o ../../../go_generics . && cd ../../../
-          
-          # Build go_marshal
           cd gvisor_src/tools/go_marshal && go build -o ../../../go_marshal . && cd ../../../
 
+      - name: Execute Code Generation (Pre-localization)
+        run: |
           echo "========================================================"
-          echo "2. Execute go_generics instantiation"
+          echo "1. Run go_generics instantiation"
           echo "========================================================"
-          # Core components
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -prefix View -t "Element=*View" -t "Linker=*View"
           ./go_generics -i gvisor_src/pkg/refs/refs_template.go -o gvisor/buffer/chunk_refs.go -p buffer -prefix chunk -t "T=chunk"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -prefix waiter -t "Element=*Entry" -t "Linker=*Entry"
           ./go_generics -i gvisor_src/pkg/segment/range.go -o gvisor/hostarch/addr_range.go -p hostarch -prefix Addr -t "T=Addr"
-
-          # TCPIP specific list structures (Fixes undefined sockErrorList and RouteEntry)
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/sockerror_list.go -p tcpip -prefix sockError -t "Element=*sockError" -t "Linker=*sockError"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/route_list.go -p tcpip -prefix Route -t "Element=*Route" -t "Linker=*Route"
 
           echo "========================================================"
-          echo "3. Execute go_marshal generation"
+          echo "2. Run go_marshal generation"
           echo "========================================================"
-          # Generate ABI marshal implementations for primitive wrappers
-          # Explicitly pass the test output flags to satisfy go_marshal's file creation requirements
-          # Ensure output dir exists
-          mkdir -p gvisor/marshal/primitive
+          # We run this BEFORE rewriting any imports. This avoids the package name ambiguity.
           ./go_marshal \
-            -pkg primitive \
-            -output gvisor/marshal/primitive/marshal_generated.go \
-            -output_test gvisor/marshal/primitive/marshal_generated_test.go \
-            -output_test_unconditional /dev/null \
+            -output=gvisor/marshal/primitive/primitive_marshal.go \
+            -output_test=gvisor/marshal/primitive/primitive_marshal_test.go \
+            -output_test_unconditional=gvisor/marshal/primitive/primitive_marshal_unc_test.go \
+            -pkg=primitive \
             gvisor/marshal/primitive/primitive.go
 
+      - name: Global Repair, Cleanup, and Import Redirection
+        run: |
           echo "========================================================"
-          echo "4. Purge unused test architectures and execute redirection"
+          echo "3. Purge unused test architectures"
           echo "========================================================"
           find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
           rm -rf gvisor/segment gvisor/tcpip/tests gvisor/tcpip/testing gvisor/tcpip/transport/testing gvisor/tcpip/transport/tcp/test gvisor/tcpip/nftables
-
           rm -rf gvisor/ilist
+
+          # Miscellaneous template adjustments
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
           rm -f gvisor/refs/refs_template.go
           rm -f gvisor/sync/locking/generic_mutex.go gvisor/sync/locking/generic_rwmutex.go
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
-          # Global path rewrite targeting your local Go module destination
-          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
+          echo "========================================================"
+          echo "4. Global redirect to local module: ${{ env.MODULE_NAME }}"
+          echo "========================================================"
+          # This now captures the newly generated primitive_marshal.go file seamlessly
+          TARGET_DIR="gvisor"
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
           rm -f go_generics go_marshal
 
