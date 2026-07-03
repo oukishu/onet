@@ -82,13 +82,14 @@ jobs:
 
           echo "Generating waiter_list..."
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=*Waiter -t List=waiterList -t Entry=waiterEntry
+          sed -i 's/^package.*/package waiter/g' gvisor/waiter/waiter_list.go
           sed -i 's/waiter_template\.//g' gvisor/waiter/waiter_list.go
-          sed -i 's/package waiter_template/package waiter/g' gvisor/waiter/waiter_list.go
+          sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
           
-          cat << 'EOF' >> gvisor/marshal/primitive/primitive.go
+          cat << 'EOF' > gvisor/marshal/primitive/primitive_patch.go
           package primitive
-          
-          func (i *Int8) CopyIn(cc interface{}, src []byte) int { copy(src, src); return 0 }
+
+          func (i *Int8) CopyIn(cc interface{}, src []byte) int { return 0 }
           func (u *Uint8) CopyIn(cc interface{}, src []byte) int { return 0 }
           func (i *Int16) CopyIn(cc interface{}, src []byte) int { return 0 }
           func (u *Uint16) CopyIn(cc interface{}, src []byte) int { return 0 }
