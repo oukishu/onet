@@ -85,6 +85,19 @@ jobs:
             -output_test_unconditional=gvisor/marshal/primitive/primitive_marshal_unc_test.go \
             -pkg=primitive \
             gvisor/marshal/primitive/primitive.go
+            
+          # FIXED: Pass ALL package files in a single batch so go_marshal can resolve full cross-file type definitions
+          echo "Generating consolidated marshal implementations for gvisor/abi/linux..."
+          
+          # Gather all non-generated Go files into a variable
+          ABI_FILES=$(ls gvisor/abi/linux/*.go | grep -v "_marshal.go")
+          
+          ./go_marshal \
+            -output="gvisor/abi/linux/linux_marshal.go" \
+            -output_test="gvisor/abi/linux/linux_marshal_test.go" \
+            -output_test_unconditional="gvisor/abi/linux/linux_marshal_unc_test.go" \
+            -pkg=linux \
+            $ABI_FILES
 
       - name: Global Repair, Cleanup, and Import Redirection
         run: |
