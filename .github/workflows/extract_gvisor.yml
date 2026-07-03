@@ -5,6 +5,7 @@ on:
 
 env:
   GVISOR_VERSION: "release-20260622.0"
+  MODULE_NAME: "github.com/oukishu/onet"
 
 jobs:
   extract-netstack:
@@ -14,6 +15,10 @@ jobs:
       - name: Checkout target repository
         uses: actions/checkout@v4
 
+- name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
 
       - name: Clone specific gVisor release branch
         run: |
@@ -40,12 +45,11 @@ jobs:
 
       - name: Repair and replace package import paths
         run: |
-          MODULE_NAME=$(go mod edit -json | grep -oP '"Module":\s*"\K[^"]+')
-          echo "Detected local module name: $MODULE_NAME"
+          echo "Detected local module name: ${{ env.MODULE_NAME }}"
           
           TARGET_DIR="gvisor"
           OLD_IMPORT="gvisor.dev/gvisor/pkg"
-          NEW_IMPORT="${MODULE_NAME}/gvisor"
+          NEW_IMPORT="${{ env.MODULE_NAME }}/gvisor"
           
           echo "Replacing ${OLD_IMPORT} with ${NEW_IMPORT}..."
           
