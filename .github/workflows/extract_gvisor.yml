@@ -33,6 +33,7 @@ jobs:
             "gohacks" "bits" "rand" "linewriter" "sleep" "rawfile" 
             "cleanup" "eventfd" "memutil" "context" "errors" "xdp" 
             "abi" "marshal" "sentry" "syserr" "refs" "hostarch" "safecopy"
+            "sighandling"
           )
           
           for pkg in "${CORE_PKGS[@]}"; do
