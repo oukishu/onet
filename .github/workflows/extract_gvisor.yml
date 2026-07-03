@@ -81,7 +81,6 @@ jobs:
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
 
           echo "Writing regular, fully-aligned Go code for waiter_list.go..."
-          echo "Instantiating waiter template list using go_generics..."
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=*Waiter -t List=waiterList -t Entry=waiterEntry
 
           echo "Writing bulletproof, strongly-typed AddrRange definition directly to hostarch..."
