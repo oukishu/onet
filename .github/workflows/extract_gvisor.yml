@@ -94,7 +94,7 @@ jobs:
           echo "========================================================"
           # Generate ABI marshal implementations for primitive wrappers
           # Explicitly pass the test output flags to satisfy go_marshal's file creation requirements
-          ./go_marshal -pkg primitive -output primitive_autogen.go primitive.go
+          ./go_marshal -pkg primitive -output gvisor/marshal/primitive/marshal_generated.go gvisor/marshal/primitive/primitive.go
 
           echo "========================================================"
           echo "4. Purge unused test architectures and execute redirection"
