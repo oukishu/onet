@@ -125,9 +125,6 @@ jobs:
           }
           EOF
           
-          find gvisor/waiter/ -type f -name "*.go" -exec sed -i '/\/\/go:build/d' {} +
-          find gvisor/waiter/ -type f -name "*.go" -exec sed -i '/\/\/ +build/d' {} +
-          
           cat << 'EOF' > gvisor/marshal/primitive/primitive.go
           package primitive
 
@@ -179,6 +176,8 @@ jobs:
           }
           EOF
 
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
+
           echo "Purging all residual template files and deep tests..."
           rm -rf gvisor/segment
           rm -rf gvisor/tcpip/tests
@@ -194,7 +193,6 @@ jobs:
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
           echo "Sanitizing multi-package path routing internally..."
-          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
           find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
           find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/buffer_template|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
           find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/refs_template|${{ env.MODULE_NAME }}/gvisor/refs|g" {} +
