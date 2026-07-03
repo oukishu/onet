@@ -33,7 +33,7 @@ jobs:
             "gohacks" "bits" "rand" "linewriter" "sleep" "rawfile" 
             "cleanup" "eventfd" "memutil" "context" "errors" "xdp" 
             "abi" "marshal" "syserr" "refs" "hostarch" "safecopy"
-            "sighandling" "sentry/uniqueid"
+            "sighandling" "sentry/uniqueid" "cpuid" "goid"
           )
           
           for pkg in "${CORE_PKGS[@]}"; do
@@ -77,14 +77,9 @@ jobs:
           
           TARGET_DIR="gvisor"
           
-          echo "Replacing gvisor.dev/gvisor/pkg with ${{ env.MODULE_NAME }}/gvisor..."
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
-          
-          echo "Redirecting github.com/google/btree to ${{ env.MODULE_NAME }}/gvisor/btree..."
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
-          
-          echo "Redirecting github.com/google/go-cmp to ${{ env.MODULE_NAME }}/gvisor/go-cmp..."
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${MODULE_NAME}/gvisor|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${MODULE_NAME}/gvisor/btree|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${MODULE_NAME}/gvisor/go-cmp|g" {} +
 
       - name: Explicitly fetch standard platform extensions
         run: |
