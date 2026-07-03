@@ -63,7 +63,7 @@ jobs:
           
           echo "Generating missing intrusive list and reference tracking code..."
           ./go_generics \
-            -i gvisor_src/pkg/ilist/list.tmpl \
+            -i gvisor/ilist/list.go \
             -o gvisor/buffer/view_list.go \
             -p buffer \
             -t Element=*View \
@@ -71,11 +71,16 @@ jobs:
             -t List=ViewList \
             -t Entry=ViewEntry
           ./go_generics \
-            -i gvisor_src/pkg/refs/refs.tmpl \
+            -i gvisor/refs/refcounter.go \
             -o gvisor/buffer/chunk_refs.go \
             -p buffer \
             -t T=chunk \
-            -t refs=chunkRefs
+            -t refs=chunkRefs \
+            -t RefCounter=chunkRefs
+            
+          echo "Redirecting generated imports back to buffer package..."
+          find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|${MODULE_NAME}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
           
           rm -f go_generics
 
