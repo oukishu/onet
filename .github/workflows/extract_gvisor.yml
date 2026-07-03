@@ -65,94 +65,52 @@ jobs:
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
-      - name: Build go_generics tool and run full instantiation
+      - name: Build and execute code generation (go_generics & go_marshal)
         run: |
-          echo "Building gVisor go_generics tool..."
-          cd gvisor_src/tools/go_generics
-          go build -o ../../../go_generics .
-          cd ../../../
+          echo "========================================================"
+          echo "1. Machine Generation: Build internal tools"
+          echo "========================================================"
+          # Build go_generics
+          cd gvisor_src/tools/go_generics && go build -o ../../../go_generics . && cd ../../../
+          
+          # Build go_marshal
+          cd gvisor_src/tools/go_marshal && go build -o ../../../go_marshal . && cd ../../../
 
           echo "========================================================"
-          echo "1. Machine Generation: Run pure go_generics instantiation"
+          echo "2. Execute go_generics instantiation"
           echo "========================================================"
-          # IMPORTANT: gVisor's real build (see each package's BUILD file,
-          # go_template_instance rules) drives these instantiations with the
-          # "-prefix" flag, not by mapping the template's own container types
-          # (List/Entry/Range/Refs) through "-t". Passing a container type
-          # through "-t" tells go_generics that type is a pre-existing
-          # *placeholder* to be deleted and replaced -- it strips that type's
-          # entire method set from the output. Since List/Entry/Range/Refs
-          # carry the actual generic implementation (not placeholders like
-          # Element/Linker/T are), mapping them via "-t" silently produces a
-          # near-empty file (it will exit 0, so this is easy to miss). Only
-          # genuine placeholder types (Element, Linker, T) belong on "-t";
-          # everything else should be renamed via "-prefix".
-
-          # Instantiate buffer/view_list.go -> maps pointer element receivers
-          # (matches pkg/buffer/BUILD: go_template_instance "view_list", prefix="View")
+          # Core components
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -prefix View -t "Element=*View" -t "Linker=*View"
-
-          # Instantiate buffer/chunk_refs.go -> internal reference counting.
-          # Note the source is refs_template.go (the actual go_template),
-          # not refcounter.go (which is refs' own already-instantiated code
-          # and isn't a valid template input).
-          # (matches pkg/buffer/BUILD: go_template_instance "chunk_refs", prefix="chunk")
           ./go_generics -i gvisor_src/pkg/refs/refs_template.go -o gvisor/buffer/chunk_refs.go -p buffer -prefix chunk -t "T=chunk"
-
-          # Instantiate waiter/waiter_list.go -> dual-linked structural elements
-          # (matches pkg/waiter/BUILD: go_template_instance "waiter_list", prefix="waiter")
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -prefix waiter -t "Element=*Entry" -t "Linker=*Entry"
-
-          # Instantiate hostarch/addr_range.go -> AddrRange, used throughout
-          # hostarch/addr.go and addr_range_seq_unsafe.go. This type is
-          # generated (not checked into the gVisor repo as source), which is
-          # why it was previously missing entirely rather than just broken.
-          # (matches pkg/hostarch/BUILD: go_template_instance "addr_range", prefix="Addr")
           ./go_generics -i gvisor_src/pkg/segment/range.go -o gvisor/hostarch/addr_range.go -p hostarch -prefix Addr -t "T=Addr"
 
+          # TCPIP specific list structures (Fixes undefined sockErrorList and RouteEntry)
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/sockerror_list.go -p tcpip -prefix sockError -t "Element=*sockError" -t "Linker=*sockError"
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/route_list.go -p tcpip -prefix Route -t "Element=*Route" -t "Linker=*Route"
+
           echo "========================================================"
-          echo "2. Purge unused test architectures and execute redirection"
+          echo "3. Execute go_marshal generation"
+          echo "========================================================"
+          # Generate ABI marshal implementations for primitive wrappers (Fixes missing CopyIn/CopyOut methods)
+          ./go_marshal -input=gvisor/marshal/primitive/primitive.go -output=gvisor/marshal/primitive/primitive_marshal.go -package=primitive
+
+          echo "========================================================"
+          echo "4. Purge unused test architectures and execute redirection"
           echo "========================================================"
           find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
           rm -rf gvisor/segment gvisor/tcpip/tests gvisor/tcpip/testing gvisor/tcpip/transport/testing gvisor/tcpip/transport/tcp/test gvisor/tcpip/nftables
 
-          # ilist/list.go and ilist/ring.go are ONLY used as go_generics
-          # template inputs in real gVisor (via the //pkg/ilist:generic_list
-          # and :generic_ring bazel targets) -- nothing actually imports the
-          # "ilist" package itself (grep the whole tree: no hits). Worse, the
-          # directory mixes two different package declarations (list.go is
-          # "package ilist", ring.go is "package ring"), which plain `go
-          # build` rejects outright. Generation above already sources
-          # directly from gvisor_src, so drop the extracted copy entirely.
           rm -rf gvisor/ilist
-
-          # bits_template.go already declares "package bits" in upstream
-          # source (it's real Go 1.18+ generics, unrelated to the
-          # go_generics tool), so this rename is a no-op left in place for
-          # safety.
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
-
-          # refs_template.go and sync/locking's generic_mutex.go /
-          # generic_rwmutex.go are go_generics TEMPLATE-ONLY files in real
-          # gVisor (separate go_template bazel targets) -- they are never
-          # part of the compiled refs / locking go_library, and each already
-          # self-imports its own package path as part of being a template.
-          # Renaming refs_template.go's package to "refs" (the old approach)
-          # makes it a real member of the refs package, which then imports
-          # itself -- "import cycle not allowed". The generic_mutex/rwmutex
-          # files have the same self-import problem out of the box, since
-          # they already say "package locking". Since generation above
-          # already sources refs_template.go directly from gvisor_src, drop
-          # these extracted copies instead of trying to fold them in.
           rm -f gvisor/refs/refs_template.go
           rm -f gvisor/sync/locking/generic_mutex.go gvisor/sync/locking/generic_rwmutex.go
-
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
           # Global path rewrite targeting your local Go module destination
           find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
 
-          rm -f go_generics
+          rm -f go_generics go_marshal
 
       - name: Clean up temporary source data
         run: |
