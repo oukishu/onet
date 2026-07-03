@@ -116,8 +116,37 @@ jobs:
           find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
           rm -rf gvisor/segment gvisor/tcpip/tests gvisor/tcpip/testing gvisor/tcpip/transport/testing gvisor/tcpip/transport/tcp/test gvisor/tcpip/nftables
 
+          # ilist/list.go and ilist/ring.go are ONLY used as go_generics
+          # template inputs in real gVisor (via the //pkg/ilist:generic_list
+          # and :generic_ring bazel targets) -- nothing actually imports the
+          # "ilist" package itself (grep the whole tree: no hits). Worse, the
+          # directory mixes two different package declarations (list.go is
+          # "package ilist", ring.go is "package ring"), which plain `go
+          # build` rejects outright. Generation above already sources
+          # directly from gvisor_src, so drop the extracted copy entirely.
+          rm -rf gvisor/ilist
+
+          # bits_template.go already declares "package bits" in upstream
+          # source (it's real Go 1.18+ generics, unrelated to the
+          # go_generics tool), so this rename is a no-op left in place for
+          # safety.
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
-          find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
+
+          # refs_template.go and sync/locking's generic_mutex.go /
+          # generic_rwmutex.go are go_generics TEMPLATE-ONLY files in real
+          # gVisor (separate go_template bazel targets) -- they are never
+          # part of the compiled refs / locking go_library, and each already
+          # self-imports its own package path as part of being a template.
+          # Renaming refs_template.go's package to "refs" (the old approach)
+          # makes it a real member of the refs package, which then imports
+          # itself -- "import cycle not allowed". The generic_mutex/rwmutex
+          # files have the same self-import problem out of the box, since
+          # they already say "package locking". Since generation above
+          # already sources refs_template.go directly from gvisor_src, drop
+          # these extracted copies instead of trying to fold them in.
+          rm -f gvisor/refs/refs_template.go
+          rm -f gvisor/sync/locking/generic_mutex.go gvisor/sync/locking/generic_rwmutex.go
+
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
           # Global path rewrite targeting your local Go module destination
