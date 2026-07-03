@@ -72,7 +72,7 @@ jobs:
           ./go_generics -i gvisor_src/pkg/refs/refs_template.go -o gvisor/buffer/chunk_refs.go -p buffer -prefix chunk -t "T=chunk"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -prefix waiter -t "Element=*Entry" -t "Linker=*Entry"
           ./go_generics -i gvisor_src/pkg/segment/range.go -o gvisor/hostarch/addr_range.go -p hostarch -prefix Addr -t "T=Addr"
-          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/sockerror_list.go -p tcpip -prefix sockError -t "Element=*sockError" -t "Linker=*sockError"
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/sockerror_list.go -p tcpip -prefix Error -t "Element=*Error" -t "Linker=*Error"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/route_list.go -p tcpip -prefix Route -t "Element=*Route" -t "Linker=*Route"
 
           echo "========================================================"
