@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oukishu/internal/buf"
-	"github.com/oukishu/internal/list"
-	"github.com/oukishu/internal/netif"
+	"github.com/oukishu/onet/internal/buf"
+	"github.com/oukishu/onet/internal/list"
+	"github.com/oukishu/onet/internal/netif"
 
 	"golang.org/x/net/route"
 	"golang.org/x/sys/unix"

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/oukishu/internal/list"
-	"github.com/oukishu/internal/winipcfg"
+	"github.com/oukishu/onet/internal/list"
+	"github.com/oukishu/onet/internal/winipcfg"
 
 	"golang.org/x/sys/windows"
 )

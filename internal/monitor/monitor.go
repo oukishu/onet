@@ -3,8 +3,8 @@ package monitor
 import (
 	"errors"
 
-	"github.com/oukishu/internal/list"
-	"github.com/oukishu/internal/netif"
+	"github.com/oukishu/onet/internal/list"
+	"github.com/oukishu/onet/internal/netif"
 )
 
 var ErrNoRoute = errors.New("no route to internet")

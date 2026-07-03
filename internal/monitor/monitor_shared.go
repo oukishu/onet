@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/oukishu/internal/list"
-	"github.com/oukishu/internal/netif"
+	"github.com/oukishu/onet/internal/list"
+	"github.com/oukishu/onet/internal/netif"
 )
 
 func (m *networkUpdateMonitor) RegisterCallback(callback NetworkUpdateCallback) *list.Element[NetworkUpdateCallback] {

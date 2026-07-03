@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oukishu/internal/list"
-	"github.com/oukishu/internal/netlink"
+	"github.com/oukishu/onet/internal/list"
+	"github.com/oukishu/onet/internal/netlink"
 
 	"golang.org/x/sys/unix"
 )

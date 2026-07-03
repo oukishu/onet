@@ -5,7 +5,7 @@ package monitor
 import (
 	"fmt"
 
-	"github.com/oukishu/internal/netlink"
+	"github.com/oukishu/onet/internal/netlink"
 
 	"golang.org/x/sys/unix"
 )
