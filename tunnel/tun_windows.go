@@ -14,8 +14,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/oukishu/onet/tunnel/internal/winipcfg"
-	"github.com/oukishu/onet/tunnel/internal/wintun"
+	"github.com/oukishu/onet/internal/winipcfg"
+	"github.com/oukishu/onet/internal/wintun"
 	"golang.org/x/sys/windows"
 )
 
