@@ -82,6 +82,8 @@ jobs:
 
           echo "Writing regular, fully-aligned Go code for waiter_list.go..."
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=*Waiter -t List=waiterList -t Entry=waiterEntry
+          sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" gvisor/waiter/waiter_list.go
+          sed -i "s|waiter_template|waiter|g" gvisor/waiter/waiter_list.go
 
           echo "Writing bulletproof, strongly-typed AddrRange definition directly to hostarch..."
           cat << 'EOF' > gvisor/hostarch/addr_range.go
@@ -134,6 +136,7 @@ jobs:
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
           echo "Sanitizing multi-package path routing internally..."
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
           find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
           find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/buffer_template|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
           find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/refs_template|${{ env.MODULE_NAME }}/gvisor/refs|g" {} +
