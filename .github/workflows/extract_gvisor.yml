@@ -80,11 +80,50 @@ jobs:
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t Element=*View -t Linker=vlist -t List=ViewList -t Entry=ViewEntry
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
 
-          echo "Generating waiter_list..."
-          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=*Waiter -t List=waiterList -t Entry=waiterEntry
-          sed -i 's/^package.*/package waiter/g' gvisor/waiter/waiter_list.go
-          sed -i 's/waiter_template\.//g' gvisor/waiter/waiter_list.go
-          sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
+          cat << 'EOF' > gvisor/waiter/waiter_list.go
+          package waiter
+
+          type waiterEntry struct {
+              next *Waiter
+              prev *Waiter
+          }
+
+          func (e *waiterEntry) Next() *Waiter { return e.next }
+          func (e *waiterEntry) Prev() *Waiter { return e.prev }
+          func (e *waiterEntry) SetNext(next *Waiter) { e.next = next }
+          func (e *waiterEntry) SetPrev(prev *Waiter) { e.prev = prev }
+
+          type waiterList struct {
+              front *Waiter
+              back  *Waiter
+          }
+
+          func (l *waiterList) Front() *Waiter { return l.front }
+          func (l *waiterList) Back() *Waiter { return l.back }
+
+          func (l *waiterList) PushBack(e *Waiter) {
+              if l.back == nil {
+                  l.front = e
+              } else {
+                  l.back.SetNext(e)
+                  e.SetPrev(l.back)
+              }
+              l.back = e
+          }
+
+          func (l *waiterList) Remove(e *Waiter) {
+              prev := e.Prev()
+              next := e.Next()
+              if prev != nil { prev.SetNext(next) } else { l.front = next }
+              if next != nil { next.SetPrev(prev) } else { l.back = prev }
+              e.SetNext(nil)
+              e.SetPrev(nil)
+          }
+
+          func (l *waiterList) Empty() bool {
+              return l.front == nil
+          }
+          EOF
           
           cat << 'EOF' > gvisor/marshal/primitive/primitive.go
           package primitive
@@ -119,38 +158,20 @@ jobs:
           
           find gvisor/marshal/primitive/ -type f ! -name "primitive.go" -delete
 
-          echo "Writing bulletproof, strongly-typed AddrRange definition directly to hostarch..."
+          echo "Writing AddrRange definition directly to hostarch..."
           cat << 'EOF' > gvisor/hostarch/addr_range.go
           package hostarch
-
           type AddrRange struct {
               Start Addr
               End   Addr
           }
-
-          func (r AddrRange) Length() Addr {
-              if r.End < r.Start {
-                  return 0
-              }
-              return r.End - r.Start
-          }
-
-          func (r AddrRange) Contains(a Addr) bool {
-              return a >= r.Start && a < r.End
-          }
-
-          func (r AddrRange) IsValid() bool {
-              return r.Start <= r.End
-          }
-
+          func (r AddrRange) Length() Addr { if r.End < r.Start { return 0 }; return r.End - r.Start }
+          func (r AddrRange) Contains(a Addr) bool { return a >= r.Start && a < r.End }
+          func (r AddrRange) IsValid() bool { return r.Start <= r.End }
           func (r AddrRange) Intersect(other AddrRange) AddrRange {
-              start := r.Start
-              if other.Start > start { start = other.Start }
-              end := r.End
-              if other.End < end { end = other.End }
-              if start < end {
-                  return AddrRange{Start: start, End: end}
-              }
+              start := r.Start; if other.Start > start { start = other.Start }
+              end := r.End; if other.End < end { end = other.End }
+              if start < end { return AddrRange{Start: start, End: end} }
               return AddrRange{}
           }
           EOF
