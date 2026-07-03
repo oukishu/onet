@@ -54,6 +54,19 @@ jobs:
           git clone --depth 1 https://github.com/google/go-cmp.git gvisor/go-cmp
           rm -rf gvisor/go-cmp/.git gvisor/go-cmp/go.mod gvisor/go-cmp/go.sum gvisor/go-cmp/*_test.go
 
+      - name: Build go_generics tool and generate code
+        run: |
+          echo "Building gVisor go_generics tool..."
+          cd gvisor_src/tools/go_generics
+          go build -o ../../../go_generics main.go
+          cd ../../../
+          
+          echo "Generating missing intrusive list and reference tracking code..."
+          ./go_generics -i gvisor/buffer/view.go -o gvisor/buffer/view_list.go -p buffer -template gvisor_src/pkg/ilist/list.tmpl -target View -linker vlist
+          ./go_generics -i gvisor/buffer/chunk.go -o gvisor/buffer/chunk_refs.go -p buffer -template gvisor_src/pkg/refs/refs.tmpl -target chunk -linker chunkRefs
+          
+          rm -f go_generics
+
       - name: Clean up temporary source data
         run: |
           rm -rf gvisor_src
@@ -62,8 +75,8 @@ jobs:
         run: |
           echo "Purging unit tests and aligning template packages..."
           find gvisor/ -type f \( -name "*_test.go" -o -name "*.pb.go" \) -delete
-          
           find gvisor/ -type f -name "*.tmpl.s" -delete
+          
           if [ -d "gvisor/segment" ]; then
             echo "Merging segment definitions into hostarch..."
             cp -n gvisor/segment/*.go gvisor/hostarch/ || true
@@ -75,6 +88,7 @@ jobs:
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package hostarch_test|package hostarch|g' {} +
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package segment|package hostarch|g' {} +
+          
           
           rm -rf gvisor/tcpip/tests
           rm -rf gvisor/tcpip/testing
