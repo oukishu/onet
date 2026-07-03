@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/oukishu/onet/netlink/nl"
+	"github.com/oukishu/onet/internal/netlink/nl"
 	"golang.org/x/sys/unix"
 )
 
