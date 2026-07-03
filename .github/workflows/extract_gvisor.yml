@@ -58,7 +58,7 @@ jobs:
         run: |
           echo "Building gVisor go_generics tool..."
           cd gvisor_src/tools/go_generics
-          go build -o ../../../go_generics main.go
+          go build -o ../../../go_generics .
           cd ../../../
           
           echo "Generating missing intrusive list and reference tracking code..."
