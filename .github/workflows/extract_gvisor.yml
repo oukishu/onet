@@ -32,16 +32,15 @@ jobs:
             "tcpip" "buffer" "atomicbitops" "waiter" "log" "ilist" "sync"
             "gohacks" "bits" "rand" "linewriter" "sleep" "rawfile" 
             "cleanup" "eventfd" "memutil" "context" "errors" "xdp" 
-            "abi" "marshal" "sentry" "syserr" "refs" "hostarch" "safecopy"
-            "sighandling"
+            "abi" "marshal" "syserr" "refs" "hostarch" "safecopy"
+            "sighandling" "sentry/uniqueid"
           )
           
           for pkg in "${CORE_PKGS[@]}"; do
             if [ -d "gvisor_src/pkg/$pkg" ]; then
               echo "Extracting pkg/$pkg -> gvisor/$pkg"
-              cp -r gvisor_src/pkg/$pkg gvisor/
-            else
-              echo "Warning: pkg/$pkg not found in source!"
+              mkdir -p "gvisor/$(dirname $pkg)"
+              cp -r "gvisor_src/pkg/$pkg" "gvisor/$pkg"
             fi
           done
 
@@ -59,16 +58,18 @@ jobs:
         run: |
           rm -rf gvisor_src
 
-      - name: Purge tests and multi-package contamination
+      - name: Purge tests, protos, and template package contamination
         run: |
-          echo "Purging unit tests, internal integration tests and templates..."
+          echo "Purging unit tests, templates and proto files..."
           find gvisor/ -type f -name "*_test.go" -delete
           find gvisor/ -type f -name "*_template.go" -delete
+          find gvisor/ -type f -name "*.pb.go" -delete
           
           rm -rf gvisor/tcpip/tests
           rm -rf gvisor/tcpip/testing
           rm -rf gvisor/tcpip/transport/testing
           rm -rf gvisor/tcpip/transport/tcp/test
+          rm -rf gvisor/tcpip/nftables
 
       - name: Repair and replace package import paths
         run: |
