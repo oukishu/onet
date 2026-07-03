@@ -33,7 +33,7 @@ jobs:
             "gohacks" "bits" "rand" "linewriter" "sleep" "rawfile" 
             "cleanup" "eventfd" "memutil" "context" "errors" "xdp" 
             "abi" "marshal" "syserr" "refs" "hostarch" "safecopy"
-            "sighandling" "sentry/uniqueid" "cpuid" "goid"
+            "sighandling" "sentry/uniqueid" "cpuid" "goid" "segment"
           )
           
           for pkg in "${CORE_PKGS[@]}"; do
@@ -63,10 +63,18 @@ jobs:
           echo "Purging unit tests and aligning template packages..."
           find gvisor/ -type f \( -name "*_test.go" -o -name "*.pb.go" \) -delete
           
+          find gvisor/ -type f -name "*.tmpl.s" -delete
+          if [ -d "gvisor/segment" ]; then
+            echo "Merging segment definitions into hostarch..."
+            cp -n gvisor/segment/*.go gvisor/hostarch/ || true
+            rm -rf gvisor/segment
+          fi
+          
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
           find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package hostarch_test|package hostarch|g' {} +
+          find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package segment|package hostarch|g' {} +
           
           rm -rf gvisor/tcpip/tests
           rm -rf gvisor/tcpip/testing
