@@ -65,7 +65,7 @@ jobs:
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
-- name: Build go_generics tool and run full instantiation
+      - name: Build go_generics tool and run full instantiation
         run: |
           echo "Building gVisor go_generics tool..."
           cd gvisor_src/tools/go_generics
