@@ -61,7 +61,10 @@ jobs:
       - name: Purge tests, protos, and template package contamination
         run: |
           echo "Purging unit tests, templates and proto files..."
-          find gvisor/ -type f \( -name "*_test.go" -o -name "*_template.go" -o -name "*.pb.go" \) -delete
+          find gvisor/ -type f \( -name "*_test.go" -o -name "*.pb.go" \) -delete
+          
+          find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
+          find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
           
           rm -rf gvisor/tcpip/tests
           rm -rf gvisor/tcpip/testing
