@@ -88,7 +88,7 @@ jobs:
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t "T=chunk" -t "refs=chunkRefs" -t "RefCounter=chunkRefs"
 
           # Instantiate waiter/waiter_list.go (Fixes: undefined: waiterList)
-          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t "Element=*Entry" -t "Linker=*Entry" -t "List=waiterList" -t "Entry=waiterEntry"
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t "Element=*Entry" -t "Linker=*Entry" -t "List=WaiterList" -t "Entry=WaiterEntry"
 
           echo "========================================================"
           echo "2. Sanitize files: Strip intrusive template package prefixes"
@@ -103,10 +103,6 @@ jobs:
           sed -i 's/ilist\.//g' gvisor/buffer/view_list.go
           sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
           sed -i 's/refs\.//g' gvisor/buffer/chunk_refs.go
-
-          # Case Alignment Fix: Ensure generated waiter types match the lowercase expectations of waiter.go
-          sed -i 's/WaiterEntry/waiterEntry/g' gvisor/waiter/waiter_list.go
-          sed -i 's/WaiterList/waiterList/g' gvisor/waiter/waiter_list.go
 
           echo "========================================================"
           echo "3. Inject missing infrastructure (primitive.go & AddrRange)"
