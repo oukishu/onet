@@ -93,7 +93,7 @@ jobs:
           echo "3. Execute go_marshal generation"
           echo "========================================================"
           # Generate ABI marshal implementations for primitive wrappers (Fixes missing CopyIn/CopyOut methods)
-          ./go_marshal -input=gvisor/marshal/primitive/primitive.go -output=gvisor/marshal/primitive/primitive_marshal.go -package=primitive
+          ./go_marshal -output=gvisor/marshal/primitive/primitive_marshal.go -pkg=primitive gvisor/marshal/primitive/primitive.go
 
           echo "========================================================"
           echo "4. Purge unused test architectures and execute redirection"
