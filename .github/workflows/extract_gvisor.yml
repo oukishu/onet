@@ -91,6 +91,9 @@ jobs:
           find gvisor/ -type f \( -name "*_test.go" -o -name "*.pb.go" \) -delete
           find gvisor/ -type f -name "*.tmpl.s" -delete
           
+          rm -f gvisor/hostarch/range.go
+          rm -f gvisor/hostarch/set.go
+          rm -f gvisor/hostarch/set_state.go
           rm -rf gvisor/segment
           
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
