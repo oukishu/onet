@@ -104,6 +104,10 @@ jobs:
           sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
           sed -i 's/refs\.//g' gvisor/buffer/chunk_refs.go
 
+          # Case Alignment Fix: Ensure generated waiter types match the lowercase expectations of waiter.go
+          sed -i 's/WaiterEntry/waiterEntry/g' gvisor/waiter/waiter_list.go
+          sed -i 's/WaiterList/waiterList/g' gvisor/waiter/waiter_list.go
+
           echo "========================================================"
           echo "3. Inject missing infrastructure (primitive.go & AddrRange)"
           echo "========================================================"
