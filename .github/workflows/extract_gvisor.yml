@@ -85,12 +85,12 @@ jobs:
               End   Addr
           }
 
-          // Length returns the size of the range.
-          func (r AddrRange) Length() uint64 {
+          // Length returns the size of the range as Addr type to match internal sequences.
+          func (r AddrRange) Length() Addr {
               if r.End < r.Start {
                   return 0
               }
-              return uint64(r.End - r.Start)
+              return r.End - r.Start
           }
 
           // Contains returns true if the address 'a' lies within [Start, End).
