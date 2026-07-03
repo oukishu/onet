@@ -72,8 +72,7 @@ jobs:
           go build -o ../../../go_generics .
           cd ../../../
           
-          # Remove platform-specific conflicting physical architecture schemas
-          rm -f gvisor/hostarch/range.go
+          # Keep range.go (contains AddrRange)! Only remove actual set schemas if conflicting.
           rm -f gvisor/hostarch/set.go
           rm -f gvisor/hostarch/set_state.go
           
@@ -81,24 +80,22 @@ jobs:
           echo "1. Machine Generation: Run pure go_generics instantiation"
           echo "========================================================"
           
-          # Instantiate buffer/view_list.go -> strictly maps pointer element receivers
+          # Instantiate buffer/view_list.go
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t "Element=*View" -t "Linker=*View" -t "List=ViewList" -t "Entry=ViewEntry"
           
-          # Instantiate buffer/chunk_refs.go -> maps internal reference counting
+          # Instantiate buffer/chunk_refs.go
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t "T=chunk" -t "refs=chunkRefs" -t "RefCounter=chunkRefs"
 
-          # Instantiate waiter/waiter_list.go -> maps dual-linked structural elements
+          # Instantiate waiter/waiter_list.go
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t "Element=*Entry" -t "Linker=*Entry" -t "List=waiterList" -t "Entry=waiterEntry"
 
           echo "========================================================"
           echo "2. Sanitization: Strip intrusive template package aliases"
           echo "========================================================"
-          # When parsing templates, go_generics prefixes types with template names like vlist. or ilist.
-          # We strip them so they naturally bind to local package scopes during a standard go build.
-          sed -i 's/vlist\.//g' gvisor/buffer/view_list.go
-          sed -i 's/ilist\.//g' gvisor/buffer/view_list.go
-          sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
-          sed -i 's/refs\.//g' gvisor/buffer/chunk_refs.go
+          # Ensure aggressive removal of template prefixes that block package binding
+          sed -i -E 's/\b(vlist|ilist|refs)\.//g' gvisor/buffer/view_list.go
+          sed -i -E 's/\b(ilist)\.//g' gvisor/waiter/waiter_list.go
+          sed -i -E 's/\b(refs)\.//g' gvisor/buffer/chunk_refs.go
 
           echo "========================================================"
           echo "3. Purge unused test architectures and execute redirection"
@@ -108,6 +105,8 @@ jobs:
 
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
           find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
+          
+          # Only update packages that are actually detached templates
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
           # Global path rewrite targeting your local Go module destination
