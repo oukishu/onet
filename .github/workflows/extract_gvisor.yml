@@ -62,8 +62,20 @@ jobs:
           cd ../../../
           
           echo "Generating missing intrusive list and reference tracking code..."
-          ./go_generics -i gvisor/buffer/view.go -o gvisor/buffer/view_list.go -p buffer -template gvisor_src/pkg/ilist/list.tmpl -target View -linker vlist
-          ./go_generics -i gvisor/buffer/chunk.go -o gvisor/buffer/chunk_refs.go -p buffer -template gvisor_src/pkg/refs/refs.tmpl -target chunk -linker chunkRefs
+          ./go_generics \
+            -i gvisor_src/pkg/ilist/list.tmpl \
+            -o gvisor/buffer/view_list.go \
+            -p buffer \
+            -t Element=*View \
+            -t Linker=vlist \
+            -t List=ViewList \
+            -t Entry=ViewEntry
+          ./go_generics \
+            -i gvisor_src/pkg/refs/refs.tmpl \
+            -o gvisor/buffer/chunk_refs.go \
+            -p buffer \
+            -t T=chunk \
+            -t refs=chunkRefs
           
           rm -f go_generics
 
