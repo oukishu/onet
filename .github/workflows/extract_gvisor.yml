@@ -72,170 +72,36 @@ jobs:
           go build -o ../../../go_generics .
           cd ../../../
           
-          # Remove platform-specific conflicting files
+          # Remove platform-specific conflicting physical architecture schemas
           rm -f gvisor/hostarch/range.go
           rm -f gvisor/hostarch/set.go
           rm -f gvisor/hostarch/set_state.go
           
           echo "========================================================"
-          echo "1. Run go_generics instantiation matching 20260622 specs"
+          echo "1. Machine Generation: Run pure go_generics instantiation"
           echo "========================================================"
           
-          # Instantiate buffer/view_list.go (Fixes: type *View has no field or method Next)
+          # Instantiate buffer/view_list.go -> strictly maps pointer element receivers
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t "Element=*View" -t "Linker=*View" -t "List=ViewList" -t "Entry=ViewEntry"
           
-          # Instantiate buffer/chunk_refs.go (Fixes: undefined: chunkRefs)
+          # Instantiate buffer/chunk_refs.go -> maps internal reference counting
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t "T=chunk" -t "refs=chunkRefs" -t "RefCounter=chunkRefs"
 
-          # Fallback: Write the complete, unbroken waiter_list implementation manually
-          cat << 'EOF' > gvisor/waiter/waiter_list.go
-          package waiter
-
-          type ElementMapper struct{}
-          func (ElementMapper) linkerFor(elem *Entry) *Entry { return elem }
-
-          // Satisfies line 140 of waiter.go: type Entry struct { waiterEntry ... }
-          type waiterEntry struct {
-              next *Entry
-              prev *Entry
-          }
-
-          func (e *waiterEntry) Next() *Entry { return e.next }
-          func (e *waiterEntry) Prev() *Entry { return e.prev }
-          func (e *waiterEntry) SetNext(next *Entry) { e.next = next }
-          func (e *waiterEntry) SetPrev(prev *Entry) { e.prev = prev }
-
-          // Satisfies line 226 of waiter.go: type Queue struct { list waiterList ... }
-          type waiterList struct {
-              front *Entry
-              back  *Entry
-          }
-
-          func (l *waiterList) Front() *Entry { return l.front }
-          func (l *waiterList) Back() *Entry { return l.back }
-
-          func (l *waiterList) PushBack(e *Entry) {
-              if l.back == nil {
-                  l.front = e
-              } else {
-                  l.back.SetNext(e)
-                  e.SetPrev(l.back)
-              }
-              l.back = e
-          }
-
-          func (l *waiterList) Remove(e *Entry) {
-              prev := e.Prev()
-              next := e.Next()
-              if prev != nil { prev.SetNext(next) } else { l.front = next }
-              if next != nil { next.SetPrev(prev) } else { l.back = prev }
-              e.SetNext(nil)
-              e.SetPrev(nil)
-          }
-
-          func (l *waiterList) Empty() bool {
-              return l.front == nil
-          }
-          EOF
-          
-          # Inject exact implementation expected by buffer.go & view.go (Avoiding tool cutoffs here too)
-          cat << 'EOF' > gvisor/buffer/view_list.go
-          package buffer
-
-          type ElementMapper struct{}
-          func (ElementMapper) linkerFor(elem *View) *View { return elem }
-
-          type ViewEntry struct {
-              next *View
-              prev *View
-          }
-
-          func (e *ViewEntry) Next() *View { return e.next }
-          func (e *ViewEntry) Prev() *View { return e.prev }
-          func (e *ViewEntry) SetNext(next *View) { e.next = next }
-          func (e *ViewEntry) SetPrev(prev *View) { e.prev = prev }
-
-          type ViewList struct {
-              front *View
-              back  *View
-          }
-
-          func (l *ViewList) Front() *View { return l.front }
-          func (l *ViewList) Back() *View { return l.back }
-
-          func (l *ViewList) PushBack(e *View) {
-              if l.back == nil {
-                  l.front = e
-              } else {
-                  l.back.SetNext(e)
-                  e.SetPrev(l.back)
-              }
-              l.back = e
-          }
-
-          func (l *ViewList) Remove(e *View) {
-              prev := e.Prev()
-              next := e.Next()
-              if prev != nil { prev.SetNext(next) } else { l.front = next }
-              if next != nil { next.SetPrev(prev) } else { l.back = prev }
-              e.SetNext(nil)
-              e.SetPrev(nil)
-          }
-
-          func (l *ViewList) Empty() bool {
-              return l.front == nil
-          }
-          EOF
-          
-          # Inject exact implementation expected by chunk.go (RefCounter structure)
-          cat << 'EOF' > gvisor/buffer/chunk_refs.go
-          package buffer
-
-          type chunkRefs struct {
-              refCount int32
-          }
-
-          func (r *chunkRefs) ReadRefs() int32 { return r.refCount }
-          func (r *chunkRefs) IncRef() { r.refCount++ }
-          func (r *chunkRefs) DecRef(onZero func()) {
-              r.refCount--
-              if r.refCount == 0 && onZero != nil { onZero() }
-          }
-          func (r *chunkRefs) InitRefs() { r.refCount = 1 }
-          EOF
+          # Instantiate waiter/waiter_list.go -> maps dual-linked structural elements
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t "Element=*Entry" -t "Linker=*Entry" -t "List=waiterList" -t "Entry=waiterEntry"
 
           echo "========================================================"
-          echo "2. Inject missing infrastructure (primitive.go & AddrRange)"
+          echo "2. Sanitization: Strip intrusive template package aliases"
           echo "========================================================"
-          cat << 'EOF' > gvisor/marshal/primitive/primitive.go
-          package primitive
-          type Int8 int8; type Uint8 uint8; type Int16 int16; type Uint16 uint16
-          type Int32 int32; type Uint32 uint32; type Int64 int64; type Uint64 uint64
-          func (i *Int8) CopyIn(cc interface{}, src []byte) int { return 0 }; func (u *Uint8) CopyIn(cc interface{}, src []byte) int { return 0 }
-          func (i *Int16) CopyIn(cc interface{}, src []byte) int { return 0 }; func (u *Uint16) CopyIn(cc interface{}, src []byte) int { return 0 }
-          func (i *Int32) CopyIn(cc interface{}, src []byte) int { return 0 }; func (u *Uint32) CopyIn(cc interface{}, src []byte) int { return 0 }
-          func (i *Int64) CopyIn(cc interface{}, src []byte) int { return 0 }; func (u *Uint64) CopyIn(cc interface{}, src []byte) int { return 0 }
-          func (i *Int8) MarshalUnsafe(src []byte) []byte { return src }; func (u *Uint8) MarshalUnsafe(src []byte) []byte { return src }
-          func (i *Int16) MarshalUnsafe(src []byte) []byte { return src }; func (u *Uint16) MarshalUnsafe(src []byte) []byte { return src }
-          func (i *Int32) MarshalUnsafe(src []byte) []byte { return src }; func (u *Uint32) MarshalUnsafe(src []byte) []byte { return src }
-          func (i *Int64) MarshalUnsafe(src []byte) []byte { return src }; func (u *Uint64) MarshalUnsafe(src []byte) []byte { return src }
-          EOF
-          find gvisor/marshal/primitive/ -type f ! -name "primitive.go" -delete
-
-          cat << 'EOF' > gvisor/hostarch/addr_range.go
-          package hostarch
-          type AddrRange struct { Start Addr; End Addr }
-          func (r AddrRange) Length() Addr { if r.End < r.Start { return 0 }; return r.End - r.Start }
-          func (r AddrRange) Contains(a Addr) bool { return a >= r.Start && a < r.End }
-          func (r AddrRange) IsValid() bool { return r.Start <= r.End }
-          func (r AddrRange) Intersect(other AddrRange) AddrRange {
-              start := r.Start; if other.Start > start { start = other.Start }; end := r.End; if other.End < end { end = other.End }
-              if start < end { return AddrRange{Start: start, End: end} }; return AddrRange{}
-          }
-          EOF
+          # When parsing templates, go_generics prefixes types with template names like vlist. or ilist.
+          # We strip them so they naturally bind to local package scopes during a standard go build.
+          sed -i 's/vlist\.//g' gvisor/buffer/view_list.go
+          sed -i 's/ilist\.//g' gvisor/buffer/view_list.go
+          sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
+          sed -i 's/refs\.//g' gvisor/buffer/chunk_refs.go
 
           echo "========================================================"
-          echo "3. Purge unused modules and run final path redirection"
+          echo "3. Purge unused test architectures and execute redirection"
           echo "========================================================"
           find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
           rm -rf gvisor/segment gvisor/tcpip/tests gvisor/tcpip/testing gvisor/tcpip/transport/testing gvisor/tcpip/transport/tcp/test gvisor/tcpip/nftables
@@ -244,7 +110,7 @@ jobs:
           find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
-          # Global rewrite of import routing paths to target your local module
+          # Global path rewrite targeting your local Go module destination
           find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
 
           rm -f go_generics
