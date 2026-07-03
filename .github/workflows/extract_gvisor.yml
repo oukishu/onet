@@ -80,10 +80,23 @@ jobs:
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t Element=*View -t Linker=vlist -t List=ViewList -t Entry=ViewEntry
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
 
-          echo "Writing regular, fully-aligned Go code for waiter_list.go..."
+          echo "Generating waiter_list..."
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=*Waiter -t List=waiterList -t Entry=waiterEntry
-          sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" gvisor/waiter/waiter_list.go
-          sed -i "s|waiter_template|waiter|g" gvisor/waiter/waiter_list.go
+          sed -i 's/waiter_template\.//g' gvisor/waiter/waiter_list.go
+          sed -i 's/package waiter_template/package waiter/g' gvisor/waiter/waiter_list.go
+          
+          cat << 'EOF' >> gvisor/marshal/primitive/primitive.go
+          package primitive
+          
+          func (i *Int8) CopyIn(cc interface{}, src []byte) int { copy(src, src); return 0 }
+          func (u *Uint8) CopyIn(cc interface{}, src []byte) int { return 0 }
+          func (i *Int16) CopyIn(cc interface{}, src []byte) int { return 0 }
+          func (u *Uint16) CopyIn(cc interface{}, src []byte) int { return 0 }
+          func (i *Int32) CopyIn(cc interface{}, src []byte) int { return 0 }
+          func (u *Uint32) CopyIn(cc interface{}, src []byte) int { return 0 }
+          func (i *Int64) CopyIn(cc interface{}, src []byte) int { return 0 }
+          func (u *Uint64) CopyIn(cc interface{}, src []byte) int { return 0 }
+          EOF
 
           echo "Writing bulletproof, strongly-typed AddrRange definition directly to hostarch..."
           cat << 'EOF' > gvisor/hostarch/addr_range.go
