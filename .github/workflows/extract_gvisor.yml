@@ -66,7 +66,7 @@ jobs:
       - name: Execute Code Generation (Pre-localization)
         run: |
           echo "========================================================"
-          echo "1. Run go_generics instantiation"
+          echo "1. Run go_generics instantiation (Core & TCPIP packages)"
           echo "========================================================"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -prefix View -t "Element=*View" -t "Linker=*View"
           ./go_generics -i gvisor_src/pkg/refs/refs_template.go -o gvisor/buffer/chunk_refs.go -p buffer -prefix chunk -t "T=chunk"
@@ -76,26 +76,43 @@ jobs:
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/route_list.go -p tcpip -prefix Route -t "Element=*Route" -t "Linker=*Route"
 
           echo "========================================================"
-          echo "2. Run go_marshal generation"
+          echo "2. Run go_generics instantiation (TCPIP/STACK package)"
           echo "========================================================"
-          # We run this BEFORE rewriting any imports. This avoids the package name ambiguity.
+          # packetBufferRefs tracking
+          ./go_generics -i gvisor_src/pkg/refs/refs_template.go -o gvisor/tcpip/stack/packet_buffer_refs.go -p stack -prefix packetBuffer -t "T=PacketBuffer"
+          
+          # conntrack intrusive list tracking
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/stack/tuple_list.go -p stack -prefix tuple -t "Element=*tuple" -t "Linker=*tuple"
+
+          # Mutex/RWMutex multi-architecture templates (Fixes undefined *RWMutex errors)
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/conn_rwmutex.go -p stack -prefix conn -t "Value=conn"
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/state_conn_rwmutex.go -p stack -prefix stateConn -t "Value=conn"
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/conntrack_rwmutex.go -p stack -prefix connTrack -t "Value=connTrack"
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/bucket_rwmutex.go -p stack -prefix bucket -t "Value=bucket"
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/transport_demuxer_rwmutex.go -p stack -prefix transportEndpoints -t "Value=transportEndpoints"
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/endpoints_by_nic_rwmutex.go -p stack -prefix endpointsByNIC -t "Value=endpointsByNIC"
+          ./go_generics -i gvisor_src/pkg/sync/locking/generic_rwmutex.go -o gvisor/tcpip/stack/multi_port_endpoint_rwmutex.go -p stack -prefix multiPortEndpoint -t "Value=multiPortEndpoint"
+
+          echo "========================================================"
+          echo "3. Run go_marshal generation"
+          echo "========================================================"
+          # Generate primitive marshal wrappers
           ./go_marshal \
             -output=gvisor/marshal/primitive/primitive_marshal.go \
             -output_test=gvisor/marshal/primitive/primitive_marshal_test.go \
             -output_test_unconditional=gvisor/marshal/primitive/primitive_marshal_unc_test.go \
             -pkg=primitive \
             gvisor/marshal/primitive/primitive.go
-            
-          # FIXED: Clean shell execution to generate consolidated marshal targets
+
+          # Clean execution pattern for gvisor/abi/linux without dot-slashes or piping path mismatches
           echo "Generating consolidated marshal implementations for gvisor/abi/linux..."
-          cd gvisor/abi/linux
-          ../../../go_marshal \
-            -output="linux_marshal.go" \
-            -output_test="linux_marshal_test.go" \
-            -output_test_unconditional="linux_marshal_unc_test.go" \
+          ABI_GO_FILES=$(find gvisor/abi/linux -maxdepth 1 -name "*.go" ! -name "*_marshal.go")
+          ./go_marshal \
+            -output="gvisor/abi/linux/linux_marshal.go" \
+            -output_test="gvisor/abi/linux/linux_marshal_test.go" \
+            -output_test_unconditional="gvisor/abi/linux/linux_marshal_unc_test.go" \
             -pkg=linux \
-            $(find . -maxdepth 1 -name "*.go" ! -name "*_marshal.go")
-          cd ../../../
+            $ABI_GO_FILES
 
       - name: Global Repair, Cleanup, and Import Redirection
         run: |
