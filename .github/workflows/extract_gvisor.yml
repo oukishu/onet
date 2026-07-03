@@ -91,11 +91,7 @@ jobs:
           find gvisor/ -type f \( -name "*_test.go" -o -name "*.pb.go" \) -delete
           find gvisor/ -type f -name "*.tmpl.s" -delete
           
-          if [ -d "gvisor/segment" ]; then
-            echo "Merging segment definitions into hostarch..."
-            cp -n gvisor/segment/*.go gvisor/hostarch/ || true
-            rm -rf gvisor/segment
-          fi
+          rm -rf gvisor/segment
           
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
           find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
