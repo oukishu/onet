@@ -57,14 +57,6 @@ jobs:
           git clone --depth 1 https://github.com/google/go-cmp.git gvisor/go-cmp
           rm -rf gvisor/go-cmp/.git gvisor/go-cmp/go.mod gvisor/go-cmp/go.sum gvisor/go-cmp/*_test.go
 
-      - name: Global Repair and replace package import paths
-        run: |
-          echo "Executing global framework redirection to local module: ${{ env.MODULE_NAME }}"
-          TARGET_DIR="gvisor"
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
-
       - name: Build go_generics and go_marshal tools
         run: |
           echo "Building gVisor generation tools..."
