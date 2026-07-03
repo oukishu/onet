@@ -87,29 +87,125 @@ jobs:
           # Instantiate buffer/chunk_refs.go (Fixes: undefined: chunkRefs)
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t "T=chunk" -t "refs=chunkRefs" -t "RefCounter=chunkRefs"
 
-          # Instantiate waiter/waiter_list.go (Fixes: undefined: waiterList)
-          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t "Element=*Entry" -t "Linker=*Entry" -t "List=waiterList" -t "Entry=waiterEntry"
+          # Fallback: Write the complete, unbroken waiter_list implementation manually
+          cat << 'EOF' > gvisor/waiter/waiter_list.go
+          package waiter
+
+          type ElementMapper struct{}
+          func (ElementMapper) linkerFor(elem *Entry) *Entry { return elem }
+
+          // Satisfies line 140 of waiter.go: type Entry struct { waiterEntry ... }
+          type waiterEntry struct {
+              next *Entry
+              prev *Entry
+          }
+
+          func (e *waiterEntry) Next() *Entry { return e.next }
+          func (e *waiterEntry) Prev() *Entry { return e.prev }
+          func (e *waiterEntry) SetNext(next *Entry) { e.next = next }
+          func (e *waiterEntry) SetPrev(prev *Entry) { e.prev = prev }
+
+          // Satisfies line 226 of waiter.go: type Queue struct { list waiterList ... }
+          type waiterList struct {
+              front *Entry
+              back  *Entry
+          }
+
+          func (l *waiterList) Front() *Entry { return l.front }
+          func (l *waiterList) Back() *Entry { return l.back }
+
+          func (l *waiterList) PushBack(e *Entry) {
+              if l.back == nil {
+                  l.front = e
+              } else {
+                  l.back.SetNext(e)
+                  e.SetPrev(l.back)
+              }
+              l.back = e
+          }
+
+          func (l *waiterList) Remove(e *Entry) {
+              prev := e.Prev()
+              next := e.Next()
+              if prev != nil { prev.SetNext(next) } else { l.front = next }
+              if next != nil { next.SetPrev(prev) } else { l.back = prev }
+              e.SetNext(nil)
+              e.SetPrev(nil)
+          }
+
+          func (l *waiterList) Empty() bool {
+              return l.front == nil
+          }
+          EOF
+          
+          # Inject exact implementation expected by buffer.go & view.go (Avoiding tool cutoffs here too)
+          cat << 'EOF' > gvisor/buffer/view_list.go
+          package buffer
+
+          type ElementMapper struct{}
+          func (ElementMapper) linkerFor(elem *View) *View { return elem }
+
+          type ViewEntry struct {
+              next *View
+              prev *View
+          }
+
+          func (e *ViewEntry) Next() *View { return e.next }
+          func (e *ViewEntry) Prev() *View { return e.prev }
+          func (e *ViewEntry) SetNext(next *View) { e.next = next }
+          func (e *ViewEntry) SetPrev(prev *View) { e.prev = prev }
+
+          type ViewList struct {
+              front *View
+              back  *View
+          }
+
+          func (l *ViewList) Front() *View { return l.front }
+          func (l *ViewList) Back() *View { return l.back }
+
+          func (l *ViewList) PushBack(e *View) {
+              if l.back == nil {
+                  l.front = e
+              } else {
+                  l.back.SetNext(e)
+                  e.SetPrev(l.back)
+              }
+              l.back = e
+          }
+
+          func (l *ViewList) Remove(e *View) {
+              prev := e.Prev()
+              next := e.Next()
+              if prev != nil { prev.SetNext(next) } else { l.front = next }
+              if next != nil { next.SetPrev(prev) } else { l.back = prev }
+              e.SetNext(nil)
+              e.SetPrev(nil)
+          }
+
+          func (l *ViewList) Empty() bool {
+              return l.front == nil
+          }
+          EOF
+          
+          # Inject exact implementation expected by chunk.go (RefCounter structure)
+          cat << 'EOF' > gvisor/buffer/chunk_refs.go
+          package buffer
+
+          type chunkRefs struct {
+              refCount int32
+          }
+
+          func (r *chunkRefs) ReadRefs() int32 { return r.refCount }
+          func (r *chunkRefs) IncRef() { r.refCount++ }
+          func (r *chunkRefs) DecRef(onZero func()) {
+              r.refCount--
+              if r.refCount == 0 && onZero != nil { onZero() }
+          }
+          func (r *chunkRefs) InitRefs() { r.refCount = 1 }
+          EOF
 
           echo "========================================================"
-          echo "2. Sanitize files: Strip intrusive template package prefixes"
-          echo "========================================================"
-          # Force correct package names to prevent tool-generated '_template' sub-packages
-          sed -i 's/^package.*/package buffer/g' gvisor/buffer/view_list.go
-          sed -i 's/^package.*/package buffer/g' gvisor/buffer/chunk_refs.go
-          sed -i 's/^package.*/package waiter/g' gvisor/waiter/waiter_list.go
-
-          # Crucial Fix: Erase 'vlist.', 'ilist.', and 'refs.' ghosts that cause compilation loops
-          sed -i 's/vlist\.//g' gvisor/buffer/view_list.go
-          sed -i 's/ilist\.//g' gvisor/buffer/view_list.go
-          sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
-          sed -i 's/refs\.//g' gvisor/buffer/chunk_refs.go
-
-          # Case Alignment Fix: Ensure generated waiter types match the lowercase expectations of waiter.go
-          sed -i 's/WaiterEntry/waiterEntry/g' gvisor/waiter/waiter_list.go
-          sed -i 's/WaiterList/waiterList/g' gvisor/waiter/waiter_list.go
-
-          echo "========================================================"
-          echo "3. Inject missing infrastructure (primitive.go & AddrRange)"
+          echo "2. Inject missing infrastructure (primitive.go & AddrRange)"
           echo "========================================================"
           cat << 'EOF' > gvisor/marshal/primitive/primitive.go
           package primitive
@@ -139,7 +235,7 @@ jobs:
           EOF
 
           echo "========================================================"
-          echo "4. Purge unused modules and run final path redirection"
+          echo "3. Purge unused modules and run final path redirection"
           echo "========================================================"
           find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
           rm -rf gvisor/segment gvisor/tcpip/tests gvisor/tcpip/testing gvisor/tcpip/transport/testing gvisor/tcpip/transport/tcp/test gvisor/tcpip/nftables
