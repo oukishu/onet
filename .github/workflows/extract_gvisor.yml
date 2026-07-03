@@ -61,68 +61,29 @@ jobs:
           go build -o ../../../go_generics .
           cd ../../../
           
-          echo "Generating missing intrusive list and reference tracking code for buffer..."
-          ./go_generics -i gvisor/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t Element=*View -t Linker=vlist -t List=ViewList -t Entry=ViewEntry
-          ./go_generics -i gvisor/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
-          
-          echo "Generating missing intrusive list for waiter package..."
-          ./go_generics \
-            -i gvisor/ilist/list.go \
-            -o gvisor/waiter/waiter_list.go \
-            -p waiter \
-            -t Element=*Waiter \
-            -t Linker=waiterList \
-            -t List=waiterList \
-            -t Entry=waiterEntry
-          
-          echo "Writing bulletproof AddrRange definition directly to hostarch..."
-          cat << 'EOF' > gvisor/hostarch/addr_range.go
-          package hostarch
+          echo "Instantiating buffer templates..."
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t Element=*View -t Linker=vlist -t List=ViewList -t Entry=ViewEntry
+          ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
 
-          // AddrRange represents a continuous range of virtual addresses [Start, End).
-          type AddrRange struct {
-              Start Addr
-              End   Addr
-          }
+          echo "Instantiating waiter templates..."
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=waiterList -t List=waiterList -t Entry=waiterEntry
 
-          // Length returns the size of the range as Addr type to match internal sequences.
-          func (r AddrRange) Length() Addr {
-              if r.End < r.Start {
-                  return 0
-              }
-              return r.End - r.Start
-          }
+          echo "Instantiating hostarch templates..."
+          ./go_generics -i gvisor_src/pkg/segment/set.go -o gvisor/hostarch/addr_range.go -p hostarch -t Key=Addr -t Range=AddrRange -t Value=Value -t Set=AddrSet
 
-          // Contains returns true if the address 'a' lies within [Start, End).
-          func (r AddrRange) Contains(a Addr) bool {
-              return a >= r.Start && a < r.End
-          }
+          echo "Purging all residual template files and deep tests..."
+          rm -rf gvisor/segment
+          find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
 
-          // IsValid returns true if Start <= End.
-          func (r AddrRange) IsValid() bool {
-              return r.Start <= r.End
-          }
+          echo "Aligning and homogenizing boundary template packages..."
+          find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
+          find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
+          find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
-          // Intersect returns the intersection of two ranges.
-          func (r AddrRange) Intersect(other AddrRange) AddrRange {
-              start := r.Start
-              if other.Start > start {
-                  start = other.Start
-              }
-              end := r.End
-              if other.End < end {
-                  end = other.End
-              }
-              if start < end {
-                  return AddrRange{Start: start, End: end}
-              }
-              return AddrRange{}
-          }
-          EOF
-            
-          echo "Redirecting generated imports back to buffer package..."
-          find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
-          find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          echo "Sanitizing multi-package path routing internally..."
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/buffer_template|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/refs_template|${{ env.MODULE_NAME }}/gvisor/refs|g" {} +
 
           rm -f go_generics
 
@@ -158,9 +119,9 @@ jobs:
           
           TARGET_DIR="gvisor"
           
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${MODULE_NAME}/gvisor|g" {} +
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${MODULE_NAME}/gvisor/btree|g" {} +
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${MODULE_NAME}/gvisor/go-cmp|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
       - name: Explicitly fetch standard platform extensions
         run: |
