@@ -48,11 +48,11 @@ jobs:
         run: |
           echo "Cloning btree into gvisor/btree..."
           git clone --depth 1 https://github.com/google/btree.git gvisor/btree
-          rm -rf gvisor/btree/.git gvisor/btree/*_test.go
+          rm -rf gvisor/btree/.git gvisor/btree/go.mod gvisor/btree/go.sum gvisor/btree/*_test.go
           
           echo "Cloning go-cmp into gvisor/go-cmp..."
           git clone --depth 1 https://github.com/google/go-cmp.git gvisor/go-cmp
-          rm -rf gvisor/go-cmp/.git gvisor/go-cmp/*_test.go
+          rm -rf gvisor/go-cmp/.git gvisor/go-cmp/go.mod gvisor/go-cmp/go.sum gvisor/go-cmp/*_test.go
 
       - name: Clean up temporary source data
         run: |
@@ -61,9 +61,7 @@ jobs:
       - name: Purge tests, protos, and template package contamination
         run: |
           echo "Purging unit tests, templates and proto files..."
-          find gvisor/ -type f -name "*_test.go" -delete
-          find gvisor/ -type f -name "*_template.go" -delete
-          find gvisor/ -type f -name "*.pb.go" -delete
+          find gvisor/ -type f \( -name "*_test.go" -o -name "*_template.go" -o -name "*.pb.go" \) -delete
           
           rm -rf gvisor/tcpip/tests
           rm -rf gvisor/tcpip/testing
