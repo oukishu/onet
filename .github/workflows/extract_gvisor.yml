@@ -32,7 +32,7 @@ jobs:
             "tcpip" "buffer" "atomicbitops" "waiter" "log" "ilist" "sync"
             "gohacks" "bits" "rand" "linewriter" "sleep" "rawfile" 
             "cleanup" "eventfd" "memutil" "context" "errors" "xdp" 
-            "abi" "marshal" "sentry" "syserr" "refs"
+            "abi" "marshal" "sentry" "syserr" "refs" "hostarch" "safecopy"
           )
           
           for pkg in "${CORE_PKGS[@]}"; do
@@ -50,11 +50,13 @@ jobs:
 
       - name: Purge tests and multi-package contamination
         run: |
-          echo "Purging unit tests and sub-package conflicts..."
+          echo "Purging unit tests, internal integration tests and templates..."
           find gvisor/ -type f -name "*_test.go" -delete
+          find gvisor/ -type f -name "*_template.go" -delete
           
           rm -rf gvisor/tcpip/tests
           rm -rf gvisor/tcpip/testing
+          rm -rf gvisor/tcpip/transport/testing
           rm -rf gvisor/tcpip/transport/tcp/test
 
       - name: Repair and replace package import paths
@@ -77,5 +79,5 @@ jobs:
       - name: Upload netstack artifact for direct download
         uses: actions/upload-artifact@v4
         with:
-          name: gvisor-independent-netstack
+          name: gvisor-${{ env.GVISOR_VERSION }}-sanitized-netstack
           path: gvisor/
