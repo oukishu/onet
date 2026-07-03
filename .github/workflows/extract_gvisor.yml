@@ -84,24 +84,24 @@ jobs:
           package waiter
 
           type waiterEntry struct {
-              next *Waiter
-              prev *Waiter
+              next *Entry
+              prev *Entry
           }
 
-          func (e *waiterEntry) Next() *Waiter { return e.next }
-          func (e *waiterEntry) Prev() *Waiter { return e.prev }
-          func (e *waiterEntry) SetNext(next *Waiter) { e.next = next }
-          func (e *waiterEntry) SetPrev(prev *Waiter) { e.prev = prev }
+          func (e *waiterEntry) Next() *Entry { return e.next }
+          func (e *waiterEntry) Prev() *Entry { return e.prev }
+          func (e *waiterEntry) SetNext(next *Entry) { e.next = next }
+          func (e *waiterEntry) SetPrev(prev *Entry) { e.prev = prev }
 
           type waiterList struct {
-              front *Waiter
-              back  *Waiter
+              front *Entry
+              back  *Entry
           }
 
-          func (l *waiterList) Front() *Waiter { return l.front }
-          func (l *waiterList) Back() *Waiter { return l.back }
+          func (l *waiterList) Front() *Entry { return l.front }
+          func (l *waiterList) Back() *Entry { return l.back }
 
-          func (l *waiterList) PushBack(e *Waiter) {
+          func (l *waiterList) PushBack(e *Entry) {
               if l.back == nil {
                   l.front = e
               } else {
@@ -111,7 +111,7 @@ jobs:
               l.back = e
           }
 
-          func (l *waiterList) Remove(e *Waiter) {
+          func (l *waiterList) Remove(e *Entry) {
               prev := e.Prev()
               next := e.Next()
               if prev != nil { prev.SetNext(next) } else { l.front = next }
