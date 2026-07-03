@@ -61,27 +61,24 @@ jobs:
           go build -o ../../../go_generics .
           cd ../../../
           
-          echo "Generating missing intrusive list and reference tracking code..."
+          echo "Generating missing intrusive list and reference tracking code for buffer..."
+          ./go_generics -i gvisor/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t Element=*View -t Linker=vlist -t List=ViewList -t Entry=ViewEntry
+          ./go_generics -i gvisor/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
+          
+          echo "Generating AddrRange for hostarch (Replacing segment hack)..."
           ./go_generics \
-            -i gvisor/ilist/list.go \
-            -o gvisor/buffer/view_list.go \
-            -p buffer \
-            -t Element=*View \
-            -t Linker=vlist \
-            -t List=ViewList \
-            -t Entry=ViewEntry
-          ./go_generics \
-            -i gvisor/refs/refcounter.go \
-            -o gvisor/buffer/chunk_refs.go \
-            -p buffer \
-            -t T=chunk \
-            -t refs=chunkRefs \
-            -t RefCounter=chunkRefs
+            -i gvisor_src/pkg/segment/set.go \
+            -o gvisor/hostarch/addr_range.go \
+            -p hostarch \
+            -t Key=Addr \
+            -t Range=AddrRange \
+            -t Value=Value \
+            -t Set=AddrSet
             
           echo "Redirecting generated imports back to buffer package..."
-          find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|${MODULE_NAME}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
           find gvisor/buffer/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
-          
+
           rm -f go_generics
 
       - name: Clean up temporary source data
@@ -103,8 +100,6 @@ jobs:
           find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
           find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
-          find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package hostarch_test|package hostarch|g' {} +
-          find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package segment|package hostarch|g' {} +
           
           
           rm -rf gvisor/tcpip/tests
