@@ -86,8 +86,17 @@ jobs:
           sed -i 's/waiter_template\.//g' gvisor/waiter/waiter_list.go
           sed -i 's/ilist\.//g' gvisor/waiter/waiter_list.go
           
-          cat << 'EOF' > gvisor/marshal/primitive/primitive_patch.go
+          cat << 'EOF' > gvisor/marshal/primitive/primitive.go
           package primitive
+
+          type Int8 int8
+          type Uint8 uint8
+          type Int16 int16
+          type Uint16 uint16
+          type Int32 int32
+          type Uint32 uint32
+          type Int64 int64
+          type Uint64 uint64
 
           func (i *Int8) CopyIn(cc interface{}, src []byte) int { return 0 }
           func (u *Uint8) CopyIn(cc interface{}, src []byte) int { return 0 }
@@ -97,7 +106,18 @@ jobs:
           func (u *Uint32) CopyIn(cc interface{}, src []byte) int { return 0 }
           func (i *Int64) CopyIn(cc interface{}, src []byte) int { return 0 }
           func (u *Uint64) CopyIn(cc interface{}, src []byte) int { return 0 }
+
+          func (i *Int8) MarshalUnsafe(src []byte) []byte { return src }
+          func (u *Uint8) MarshalUnsafe(src []byte) []byte { return src }
+          func (i *Int16) MarshalUnsafe(src []byte) []byte { return src }
+          func (u *Uint16) MarshalUnsafe(src []byte) []byte { return src }
+          func (i *Int32) MarshalUnsafe(src []byte) []byte { return src }
+          func (u *Uint32) MarshalUnsafe(src []byte) []byte { return src }
+          func (i *Int64) MarshalUnsafe(src []byte) []byte { return src }
+          func (u *Uint64) MarshalUnsafe(src []byte) []byte { return src }
           EOF
+          
+          find gvisor/marshal/primitive/ -type f ! -name "primitive.go" -delete
 
           echo "Writing bulletproof, strongly-typed AddrRange definition directly to hostarch..."
           cat << 'EOF' > gvisor/hostarch/addr_range.go
