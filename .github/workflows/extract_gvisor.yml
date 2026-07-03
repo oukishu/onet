@@ -72,19 +72,18 @@ jobs:
 
       - name: Repair and replace package import paths
         run: |
-          MODULE_NAME=$(go mod edit -json | grep -oP '"Module":\s*"\K[^"]+')
-          echo "Detected local module name: $MODULE_NAME"
+          echo "Detected local module name: ${{ env.MODULE_NAME }}"
           
           TARGET_DIR="gvisor"
           
-          echo "Replacing gvisor.dev/gvisor/pkg with ${MODULE_NAME}/gvisor..."
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${MODULE_NAME}/gvisor|g" {} +
+          echo "Replacing gvisor.dev/gvisor/pkg with ${{ env.MODULE_NAME }}/gvisor..."
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
           
-          echo "Redirecting github.com/google/btree to ${MODULE_NAME}/gvisor/btree..."
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${MODULE_NAME}/gvisor/btree|g" {} +
+          echo "Redirecting github.com/google/btree to ${{ env.MODULE_NAME }}/gvisor/btree..."
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
           
-          echo "Redirecting github.com/google/go-cmp to ${MODULE_NAME}/gvisor/go-cmp..."
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${MODULE_NAME}/gvisor/go-cmp|g" {} +
+          echo "Redirecting github.com/google/go-cmp to ${{ env.MODULE_NAME }}/gvisor/go-cmp..."
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
       - name: Explicitly fetch standard platform extensions
         run: |
