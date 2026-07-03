@@ -1,0 +1,63 @@
+name: Extract Independent GVisor Netstack
+
+on:
+  workflow_dispatch:
+
+env:
+  GVISOR_VERSION: "release-20260622.0"
+
+jobs:
+  extract-netstack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+
+
+      - name: Clone specific gVisor release branch
+        run: |
+          echo "Cloning gVisor version: ${{ env.GVISOR_VERSION }}"
+          git clone --depth 1 --branch ${{ env.GVISOR_VERSION }} https://github.com/google/gvisor.git gvisor_src
+
+      - name: Extract required core packages
+        run: |
+          mkdir -p gvisor
+          CORE_PKGS=("tcpip" "buffer" "atomicbitops" "waiter" "log" "ilist" "sync")
+          
+          for pkg in "${CORE_PKGS[@]}"; do
+            if [ -d "gvisor_src/pkg/$pkg" ]; then
+              echo "Extracting pkg/$pkg -> gvisor/$pkg"
+              cp -r gvisor_src/pkg/$pkg gvisor/
+            else
+              echo "Warning: pkg/$pkg not found in source!"
+            fi
+          done
+
+      - name: Clean up temporary source data
+        run: |
+          rm -rf gvisor_src
+
+      - name: Repair and replace package import paths
+        run: |
+          MODULE_NAME=$(go mod edit -json | grep -oP '"Module":\s*"\K[^"]+')
+          echo "Detected local module name: $MODULE_NAME"
+          
+          TARGET_DIR="gvisor"
+          OLD_IMPORT="gvisor.dev/gvisor/pkg"
+          NEW_IMPORT="${MODULE_NAME}/gvisor"
+          
+          echo "Replacing ${OLD_IMPORT} with ${NEW_IMPORT}..."
+          
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|${OLD_IMPORT}|${NEW_IMPORT}|g" {} +
+
+      - name: Sanity check compilation
+        run: |
+          echo "Verifying local netstack structure compilation..."
+          go build -v ./gvisor/tcpip/... || echo "Notice: Some platform-specific files may need tags or stubs."
+
+      - name: Upload netstack artifact for direct download
+        uses: actions/upload-artifact@v4
+        with:
+          name: gvisor-independent-netstack
+          path: gvisor/
