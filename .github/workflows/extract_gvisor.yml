@@ -72,6 +72,19 @@ jobs:
           
           find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|${OLD_IMPORT}|${NEW_IMPORT}|g" {} +
 
+      - name: Explicitly fetch and force update dependencies
+        run: |
+          echo "Injecting and locking exact required modules into go.mod..."
+          
+          go get golang.org/x/sys
+          go get golang.org/x/time
+          go get github.com/google/btree
+          go get github.com/google/go-cmp
+          go get golang.org/x/exp
+          
+          echo "Running aggressive module tree tidying..."
+          go mod tidy -v
+
       - name: Sanity check compilation
         run: |
           echo "Verifying local netstack structure compilation..."
