@@ -28,7 +28,12 @@ jobs:
       - name: Extract required core packages
         run: |
           mkdir -p gvisor
-          CORE_PKGS=("tcpip" "buffer" "atomicbitops" "waiter" "log" "ilist" "sync")
+          CORE_PKGS=(
+            "tcpip" "buffer" "atomicbitops" "waiter" "log" "ilist" "sync"
+            "gohacks" "bits" "rand" "linewriter" "sleep" "rawfile" 
+            "cleanup" "eventfd" "memutil" "context" "errors" "xdp" 
+            "abi" "marshal" "sentry" "syserr" "refs"
+          )
           
           for pkg in "${CORE_PKGS[@]}"; do
             if [ -d "gvisor_src/pkg/$pkg" ]; then
@@ -42,6 +47,15 @@ jobs:
       - name: Clean up temporary source data
         run: |
           rm -rf gvisor_src
+
+      - name: Purge tests and multi-package contamination
+        run: |
+          echo "Purging unit tests and sub-package conflicts..."
+          find gvisor/ -type f -name "*_test.go" -delete
+          
+          rm -rf gvisor/tcpip/tests
+          rm -rf gvisor/tcpip/testing
+          rm -rf gvisor/tcpip/transport/tcp/test
 
       - name: Repair and replace package import paths
         run: |
