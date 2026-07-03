@@ -72,7 +72,7 @@ jobs:
           ./go_generics -i gvisor_src/pkg/refs/refs_template.go -o gvisor/buffer/chunk_refs.go -p buffer -prefix chunk -t "T=chunk"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -prefix waiter -t "Element=*Entry" -t "Linker=*Entry"
           ./go_generics -i gvisor_src/pkg/segment/range.go -o gvisor/hostarch/addr_range.go -p hostarch -prefix Addr -t "T=Addr"
-          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/sockerror_list.go -p tcpip -prefix Error -t "Element=*Error" -t "Linker=*Error"
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/sockerror_list.go -p tcpip -prefix sockError -t "Element=*SockError" -t "Linker=*SockError"
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/tcpip/route_list.go -p tcpip -prefix Route -t "Element=*Route" -t "Linker=*Route"
 
           echo "========================================================"
@@ -86,18 +86,16 @@ jobs:
             -pkg=primitive \
             gvisor/marshal/primitive/primitive.go
             
-          # FIXED: Pass ALL package files in a single batch so go_marshal can resolve full cross-file type definitions
+          # FIXED: Clean shell execution to generate consolidated marshal targets
           echo "Generating consolidated marshal implementations for gvisor/abi/linux..."
-          
-          # Gather all non-generated Go files into a variable
-          ABI_FILES=$(ls gvisor/abi/linux/*.go | grep -v "_marshal.go")
-          
-          ./go_marshal \
-            -output="gvisor/abi/linux/linux_marshal.go" \
-            -output_test="gvisor/abi/linux/linux_marshal_test.go" \
-            -output_test_unconditional="gvisor/abi/linux/linux_marshal_unc_test.go" \
+          cd gvisor/abi/linux
+          ../../../go_marshal \
+            -output="linux_marshal.go" \
+            -output_test="linux_marshal_test.go" \
+            -output_test_unconditional="linux_marshal_unc_test.go" \
             -pkg=linux \
-            $ABI_FILES
+            $(find . -maxdepth 1 -name "*.go" ! -name "*_marshal.go")
+          cd ../../../
 
       - name: Global Repair, Cleanup, and Import Redirection
         run: |
