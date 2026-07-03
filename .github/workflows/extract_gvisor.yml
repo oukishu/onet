@@ -81,50 +81,8 @@ jobs:
           ./go_generics -i gvisor_src/pkg/refs/refcounter.go -o gvisor/buffer/chunk_refs.go -p buffer -t T=chunk -t refs=chunkRefs -t RefCounter=chunkRefs
 
           echo "Writing regular, fully-aligned Go code for waiter_list.go..."
-          cat << 'EOF' > gvisor/waiter/waiter_list.go
-          package waiter
-
-          type waiterEntry struct {
-              next *Waiter
-              prev *Waiter
-          }
-
-          func (e *waiterEntry) Next() *Waiter { return e.next }
-          func (e *waiterEntry) Prev() *Waiter { return e.prev }
-          func (e *waiterEntry) SetNext(next *Waiter) { e.next = next }
-          func (e *waiterEntry) SetPrev(prev *Waiter) { e.prev = prev }
-
-          type waiterList struct {
-              front *Waiter
-              back  *Waiter
-          }
-
-          func (l *waiterList) Front() *Waiter { return l.front }
-          func (l *waiterList) Back() *Waiter { return l.back }
-
-          func (l *waiterList) PushBack(e *Waiter) {
-              if l.back == nil {
-                  l.front = e
-              } else {
-                  l.back.SetNext(e)
-                  e.SetPrev(l.back)
-              }
-              l.back = e
-          }
-
-          func (l *waiterList) Remove(e *Waiter) {
-              prev := e.Prev()
-              next := e.Next()
-              if prev != nil { prev.SetNext(next) } else { l.front = next }
-              if next != nil { next.SetPrev(prev) } else { l.back = prev }
-              e.SetNext(nil)
-              e.SetPrev(nil)
-          }
-
-          func (l *waiterList) Empty() bool {
-              return l.front == nil
-          }
-          EOF
+          echo "Instantiating waiter template list using go_generics..."
+          ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/waiter/waiter_list.go -p waiter -t Element=*Waiter -t Linker=*Waiter -t List=waiterList -t Entry=waiterEntry
 
           echo "Writing bulletproof, strongly-typed AddrRange definition directly to hostarch..."
           cat << 'EOF' > gvisor/hostarch/addr_range.go
