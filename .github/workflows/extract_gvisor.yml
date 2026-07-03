@@ -27,6 +27,7 @@ jobs:
 
       - name: Extract required core packages
         run: |
+          rm -rf gvisor
           mkdir -p gvisor
           CORE_PKGS=(
             "tcpip" "buffer" "atomicbitops" "waiter" "log" "ilist" "sync"
@@ -37,10 +38,12 @@ jobs:
           )
           
           for pkg in "${CORE_PKGS[@]}"; do
-            if [ -d "gvisor_src/pkg/$pkg" ]; then
-              echo "Extracting pkg/$pkg -> gvisor/$pkg"
-              mkdir -p "gvisor/$(dirname $pkg)"
-              cp -r "gvisor_src/pkg/$pkg" "gvisor/$pkg"
+            SRC_DIR="gvisor_src/pkg/$pkg"
+            DST_DIR="gvisor/$pkg"
+            if [ -d "$SRC_DIR" ]; then
+              echo "Extracting pkg/$pkg -> $DST_DIR"
+              mkdir -p "$DST_DIR"
+              cp -r "$SRC_DIR"/. "$DST_DIR/"
             fi
           done
 
@@ -54,12 +57,24 @@ jobs:
           git clone --depth 1 https://github.com/google/go-cmp.git gvisor/go-cmp
           rm -rf gvisor/go-cmp/.git gvisor/go-cmp/go.mod gvisor/go-cmp/go.sum gvisor/go-cmp/*_test.go
 
-      - name: Build go_generics tool and generate code
+      - name: Global Repair and replace package import paths
+        run: |
+          echo "Executing global framework redirection to local module: ${{ env.MODULE_NAME }}"
+          TARGET_DIR="gvisor"
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
+          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
+
+      - name: Build go_generics tool and run full instantiation
         run: |
           echo "Building gVisor go_generics tool..."
           cd gvisor_src/tools/go_generics
           go build -o ../../../go_generics .
           cd ../../../
+          
+          rm -f gvisor/hostarch/range.go
+          rm -f gvisor/hostarch/set.go
+          rm -f gvisor/hostarch/set_state.go
           
           echo "Instantiating buffer templates..."
           ./go_generics -i gvisor_src/pkg/ilist/list.go -o gvisor/buffer/view_list.go -p buffer -t Element=*View -t Linker=vlist -t List=ViewList -t Entry=ViewEntry
@@ -73,6 +88,11 @@ jobs:
 
           echo "Purging all residual template files and deep tests..."
           rm -rf gvisor/segment
+          rm -rf gvisor/tcpip/tests
+          rm -rf gvisor/tcpip/testing
+          rm -rf gvisor/tcpip/transport/testing
+          rm -rf gvisor/tcpip/transport/tcp/test
+          rm -rf gvisor/tcpip/nftables
           find gvisor/ -type f \( -name "*.tmpl" -o -name "*.tmpl.s" -o -name "*_test.go" -o -name "*.pb.go" \) -delete
 
           echo "Aligning and homogenizing boundary template packages..."
@@ -81,47 +101,15 @@ jobs:
           find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
 
           echo "Sanitizing multi-package path routing internally..."
-          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
-          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/buffer/buffer_template|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
-          find gvisor/ -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg/refs_template|${{ env.MODULE_NAME }}/gvisor/refs|g" {} +
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/vlist|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/buffer/buffer_template|${{ env.MODULE_NAME }}/gvisor/buffer|g" {} +
+          find gvisor/ -type f -name "*.go" -exec sed -i "s|${{ env.MODULE_NAME }}/gvisor/refs_template|${{ env.MODULE_NAME }}/gvisor/refs|g" {} +
 
           rm -f go_generics
 
       - name: Clean up temporary source data
         run: |
           rm -rf gvisor_src
-
-      - name: Purge tests and align Template Packages
-        run: |
-          echo "Purging unit tests and aligning template packages..."
-          find gvisor/ -type f \( -name "*_test.go" -o -name "*.pb.go" \) -delete
-          find gvisor/ -type f -name "*.tmpl.s" -delete
-          
-          rm -f gvisor/hostarch/range.go
-          rm -f gvisor/hostarch/set.go
-          rm -f gvisor/hostarch/set_state.go
-          rm -rf gvisor/segment
-          
-          find gvisor/bits/ -type f -name "*_template.go" -exec sed -i 's|package bits_template|package bits|g' {} +
-          find gvisor/refs/ -type f -name "*_template.go" -exec sed -i 's|package refs_template|package refs|g' {} +
-          find gvisor/hostarch/ -type f -name "*.go" -exec sed -i 's|package addr_range|package hostarch|g' {} +
-          
-          
-          rm -rf gvisor/tcpip/tests
-          rm -rf gvisor/tcpip/testing
-          rm -rf gvisor/tcpip/transport/testing
-          rm -rf gvisor/tcpip/transport/tcp/test
-          rm -rf gvisor/tcpip/nftables
-
-      - name: Repair and replace package import paths
-        run: |
-          echo "Detected local module name: ${{ env.MODULE_NAME }}"
-          
-          TARGET_DIR="gvisor"
-          
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|gvisor.dev/gvisor/pkg|${{ env.MODULE_NAME }}/gvisor|g" {} +
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/btree|${{ env.MODULE_NAME }}/gvisor/btree|g" {} +
-          find "$TARGET_DIR" -type f -name "*.go" -exec sed -i "s|github.com/google/go-cmp|${{ env.MODULE_NAME }}/gvisor/go-cmp|g" {} +
 
       - name: Explicitly fetch standard platform extensions
         run: |
