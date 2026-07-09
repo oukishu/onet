@@ -139,27 +139,27 @@ func (s *Serializer) ReadAddress(reader io.Reader) (Socksaddr, error) {
 	case AddressFamilyFqdn:
 		fqdn, err := ReadSockString(reader)
 		if err != nil {
-			return Socksaddr{}, fmt.Errorf("read fqdn: %w", err)
+			return Socksaddr{}, fmt.Errorf("read fqdn: %v", err)
 		}
 		return ParseSocksaddrHostPort(fqdn, 0), nil
 	case AddressFamilyIPv4:
 		var addr [4]byte
 		_, err = io.ReadFull(reader, addr[:])
 		if err != nil {
-			return Socksaddr{}, fmt.Errorf("read ipv4 address: %w", err)
+			return Socksaddr{}, fmt.Errorf("read ipv4 address: %v", err)
 		}
 		return Socksaddr{Addr: netip.AddrFrom4(addr)}, nil
 	case AddressFamilyIPv6:
 		var addr [16]byte
 		_, err = io.ReadFull(reader, addr[:])
 		if err != nil {
-			return Socksaddr{}, fmt.Errorf("read ipv6 address: %w", err)
+			return Socksaddr{}, fmt.Errorf("read ipv6 address: %v", err)
 		}
 		return Socksaddr{Addr: netip.AddrFrom16(addr)}.Unwrap(), nil
 	case AddressFamilyEmpty:
 		return Socksaddr{}, nil
 	default:
-		return Socksaddr{}, fmt.Errorf("read ipv6 address: %w", af)
+		return Socksaddr{}, fmt.Errorf("read ipv6 address: %v", af)
 	}
 }
 
@@ -167,7 +167,7 @@ func (s *Serializer) ReadPort(reader io.Reader) (uint16, error) {
 	var port uint16
 	err := binary.Read(reader, binary.BigEndian, &port)
 	if err != nil {
-		return 0, fmt.Errorf("read port: %w", err)
+		return 0, fmt.Errorf("read port: %v", err)
 	}
 	return port, nil
 }
